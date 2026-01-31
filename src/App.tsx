@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Minus, Square, Play, ShieldCheck, Zap } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { X, Minus, Square, Play, Pause, ShieldCheck, Zap } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -13,6 +14,7 @@ function cn(...inputs: ClassValue[]) {
 function App() {
   const [filePath, setFilePath] = useState<string | null>(null);
   const [isLowQuality, setIsLowQuality] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const appWindow = getCurrentWindow();
 
   useEffect(() => {
@@ -21,6 +23,7 @@ function App() {
       if (paths && paths.length > 0) {
         const path = paths[0];
         setFilePath(path);
+        setIsPlaying(true);
         try {
           await invoke("open_video", { path });
         } catch (err) {
@@ -29,10 +32,20 @@ function App() {
       }
     });
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        handleTogglePlayback();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
     return () => {
       unlisten.then((fn) => fn());
+      window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [isPlaying]);
 
   const handleToggleQuality = async () => {
     const nextVal = !isLowQuality;
@@ -40,8 +53,40 @@ function App() {
     await invoke("toggle_quality", { lowQuality: nextVal });
   };
 
+  const handleOpenFile = async () => {
+    const selected = await open({
+      multiple: false,
+      filters: [
+        {
+          name: "Video",
+          extensions: ["mp4", "mkv", "avi", "mov", "webm"],
+        },
+      ],
+    });
+
+    if (selected && !Array.isArray(selected)) {
+      setFilePath(selected);
+      setIsPlaying(true);
+      try {
+        await invoke("open_video", { path: selected });
+      } catch (err) {
+        console.error("Failed to open video:", err);
+      }
+    }
+  };
+
+  const handleTogglePlayback = async () => {
+    if (!filePath) return;
+    try {
+      const playing = await invoke<boolean>("toggle_playback");
+      setIsPlaying(playing);
+    } catch (err) {
+      console.error("Failed to toggle playback:", err);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-screen text-zinc-300 select-none overflow-hidden font-sans bg-transparent">
+    <div className="flex flex-col h-screen text-zinc-300 select-none overflow-hidden font-sans bg-zinc-950/90">
       {/* Custom Title Bar */}
       <header className="h-10 flex items-center justify-between glass-panel drag-region px-4 z-50">
         <div className="flex items-center gap-2">
@@ -76,7 +121,11 @@ function App() {
       </header>
 
       {/* Main Content / Preview Area */}
-      <main className="relative flex-1 flex items-center justify-center bg-pro-black/50 overflow-hidden">
+      <main
+        onDoubleClick={handleOpenFile}
+        onClick={handleTogglePlayback}
+        className="relative flex-1 flex items-center justify-center bg-pro-black/50 overflow-hidden cursor-pointer group"
+      >
         {!filePath ? (
           <div className="flex flex-col items-center gap-6 text-center animate-in fade-in zoom-in duration-500">
             <div className="w-24 h-24 rounded-3xl bg-brand-yellow/10 flex items-center justify-center border border-brand-yellow/20 shadow-2xl shadow-brand-yellow/5">
@@ -84,17 +133,42 @@ function App() {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-white mb-2">Ready to Preview</h2>
-              <p className="text-zinc-500 max-w-xs">Drag and drop any video file here to start the native WGPU playback engine.</p>
+              <p className="text-zinc-500 max-w-xs">Double-click to open or drag and drop any video file here.</p>
             </div>
           </div>
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center italic text-brand-yellow font-bold uppercase tracking-widest opacity-20 pointer-events-none">
-            WGPU Native Layer Active
-          </div>
+          <>
+            <div className="absolute inset-0 flex items-center justify-center italic text-brand-yellow font-bold uppercase tracking-widest opacity-20 pointer-events-none">
+              WGPU Native Layer Active
+            </div>
+
+            {/* Center Play/Pause Indicator (Fades in on hover or toggle) */}
+            <div className={cn(
+              "w-20 h-20 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center border border-white/10 transition-all duration-300 opacity-0 group-hover:opacity-100",
+              !isPlaying && "opacity-100"
+            )}>
+              {isPlaying ? (
+                <Pause className="w-8 h-8 text-white fill-current" />
+              ) : (
+                <Play className="w-8 h-8 text-brand-yellow fill-current ml-1" />
+              )}
+            </div>
+          </>
         )}
 
         {/* Overlay Controls */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 no-drag">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 no-drag" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={handleTogglePlayback}
+            className="w-10 h-10 flex items-center justify-center rounded-full glass-panel border-white/10 hover:border-brand-yellow/40 transition-all"
+          >
+            {isPlaying ? (
+              <Pause className="w-4 h-4 text-white fill-current" />
+            ) : (
+              <Play className="w-4 h-4 text-brand-yellow fill-current ml-0.5" />
+            )}
+          </button>
+
           <button
             onClick={handleToggleQuality}
             className={cn(
