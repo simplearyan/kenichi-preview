@@ -253,13 +253,11 @@ impl Renderer {
 
         // 2. Upload Data
         if let Some(texture) = &self.video_texture {
-            // WGPU requires bytes_per_row to be a multiple of 256
             let unaligned_bytes_per_row = stride;
             let align = 256;
             let aligned_bytes_per_row = (unaligned_bytes_per_row + align - 1) & !(align - 1);
 
             if unaligned_bytes_per_row == aligned_bytes_per_row {
-                // Happy path: Data is already aligned
                 self.queue.write_texture(
                     ImageCopyTexture {
                         texture,
@@ -276,20 +274,16 @@ impl Renderer {
                     texture_size,
                 );
             } else {
-                // Unaligned path: Must pad the data
-                // Resize buffer if needed (amortized allocation)
                 let required_size = (aligned_bytes_per_row * height) as usize;
                 if self.padding_buffer.len() < required_size {
                     self.padding_buffer.resize(required_size, 0);
                 }
 
-                // Copy row by row
                 for y in 0..height {
                     let src_start = (y * unaligned_bytes_per_row) as usize;
-                    let src_end = src_start + (width * 4) as usize; // Read only valid pixels, ignore existing padding
+                    let src_end = src_start + (width * 4) as usize;
                     let dst_start = (y * aligned_bytes_per_row) as usize;
                     
-                    // Safety check to avoid index out of bounds
                     if src_end <= rgba_data.len() && (dst_start + (width * 4) as usize) <= self.padding_buffer.len() {
                         self.padding_buffer[dst_start..dst_start + (width * 4) as usize]
                             .copy_from_slice(&rgba_data[src_start..src_end]);
@@ -327,10 +321,10 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 0.0,
+                            r: 0.012,
+                            g: 0.012,
+                            b: 0.014,
+                            a: 1.0,
                         }),
                         store: StoreOp::Store,
                     },
@@ -344,19 +338,69 @@ impl Renderer {
                 render_pass.set_viewport(rect.x, rect.y, rect.width, rect.height, 0.0, 1.0);
             }
 
-            render_pass.set_pipeline(&self.pipeline);
             if let Some(bind_group) = &self.video_bind_group {
+                render_pass.set_pipeline(&self.pipeline);
                 render_pass.set_bind_group(0, bind_group, &[]);
+                render_pass.draw(0..3, 0..1);
             }
-            render_pass.draw(0..3, 0..1);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
-        
-        // Critical: Poll to ensure commands are executed and resources potentially cleaned up
         self.device.poll(Maintain::Wait);
 
+        Ok(())
+    }
+
+    pub fn repaint(&mut self) -> anyhow::Result<()> {
+        let output = match self.surface.get_current_texture() {
+            Ok(output) => output,
+            Err(SurfaceError::Outdated) | Err(SurfaceError::Lost) => {
+                self.surface.configure(&self.device, &self.config);
+                return Ok(());
+            }
+            Err(e) => return Err(e.into()),
+        };
+        let view = output.texture.create_view(&TextureViewDescriptor::default());
+        let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Repaint Encoder"),
+        });
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("Repaint Pass"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color {
+                            r: 0.012,
+                            g: 0.012,
+                            b: 0.014,
+                            a: 1.0,
+                        }),
+                        store: StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+
+            if let Some(rect) = &self.viewport {
+                render_pass.set_viewport(rect.x, rect.y, rect.width, rect.height, 0.0, 1.0);
+            }
+
+            if let Some(bind_group) = &self.video_bind_group {
+                render_pass.set_pipeline(&self.pipeline);
+                render_pass.set_bind_group(0, bind_group, &[]);
+                render_pass.draw(0..3, 0..1);
+            }
+        }
+
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
+        self.device.poll(Maintain::Wait);
         Ok(())
     }
 }

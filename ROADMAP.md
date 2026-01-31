@@ -11,9 +11,12 @@ This document outlines the planned feature development for the Kenichi Preview a
 - [x] **Fix Video Geometry**: Corrected degenerate triangles and shader math.
 
 ## Phase 2: UI & Layout Redesign (Current Focus)
-- [ ] **Transparency Fix**: Remove semi-opaque backgrounds to make the WGPU layer fully visible.
-- [ ] **Sidebar Layout**: Implement a three-pane layout (Sidebar | Preview | Controls) inspired by KenichiConverter.
-- [ ] **Playlist Management**: Support importing and switching between multiple video/image files.
+- [x] **Transparency Fix**: Implemented fully transparent Webview on top of solid WGPU backend.
+- [x] **Solid Landing Background**: WGPU initializes immediately on startup to provide a solid background.
+- [x] **Sidebar Layout**: Implemented a three-pane layout (Sidebar | Preview | Controls) with glassmorphism.
+- [x] **Playlist Management**: Support for importing multiple files and switching between them.
+- [x] **Dynamic Viewports**: Video now clips perfectly to the designated preview area.
+- [x] **Color Accuracy**: sRGB texture format used for vibrant, accurate colors.
 
 ## Phase 3: Enhanced Media Support
 - [ ] **Audio Support**:

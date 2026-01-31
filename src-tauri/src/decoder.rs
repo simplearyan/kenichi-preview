@@ -10,8 +10,6 @@ pub struct Decoder {
     video_stream_index: usize,
     decoder: ffmpeg::decoder::Video,
     scaler: Context,
-    target_width: u32,
-    target_height: u32,
     // Caching frames to avoid re-allocation
     raw_frame: Video,
     scaled_frame: Video,
@@ -67,8 +65,6 @@ impl Decoder {
             video_stream_index,
             decoder,
             scaler,
-            target_width,
-            target_height,
             raw_frame: Video::empty(),
             scaled_frame: Video::empty(),
         })
@@ -107,9 +103,5 @@ impl Decoder {
         }
 
         Ok(None)
-    }
-
-    pub fn get_dimensions(&self) -> (u32, u32) {
-        (self.target_width, self.target_height)
     }
 }

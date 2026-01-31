@@ -77,15 +77,35 @@ function App() {
     handleOpenFile(playlist[index]);
   };
 
+  // 1. Initial Renderer Setup (Mount Only)
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await invoke("init_renderer");
+        updateViewport();
+      } catch (err) {
+        console.error("Failed to init renderer:", err);
+      }
+    };
+    init();
+
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  // 2. Event Listeners and Keyboard Shortcuts
   useEffect(() => {
     const unlisten = listen("tauri://drag-drop", async (event: any) => {
       const paths = event.payload.paths;
       if (paths && paths.length > 0) {
-        setPlaylist(prev => [...prev, ...paths]);
-        if (currentIndex === null) {
-          setCurrentIndex(playlist.length);
-          handleOpenFile(paths[0]);
-        }
+        setPlaylist(prev => {
+          const newPlaylist = [...prev, ...paths];
+          if (currentIndex === null) {
+            setCurrentIndex(prev.length);
+            handleOpenFile(paths[0]);
+          }
+          return newPlaylist;
+        });
       }
     });
 
@@ -97,15 +117,11 @@ function App() {
     };
 
     window.addEventListener("keydown", handleKeyDown);
-
-    // Viewport updates
-    updateViewport();
-    window.addEventListener("resize", updateViewport);
+    updateViewport(); // Ensure viewport is synced when state changes
 
     return () => {
       unlisten.then((fn) => fn());
       window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", updateViewport);
     };
   }, [currentIndex, playlist, isPlaying]);
 

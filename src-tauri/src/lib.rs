@@ -24,14 +24,20 @@ async fn open_video(
     let low_quality = *state.is_low_quality.lock().unwrap();
 
     // 1. Initialize Renderer if not already done
-    let needs_init = state.renderer.lock().unwrap().is_none();
-    
-    if needs_init {
-        let r = Renderer::new(Arc::new(window.clone()))
-            .await
-            .map_err(|e| e.to_string())?;
-        let mut renderer_guard = state.renderer.lock().unwrap();
-        *renderer_guard = Some(r);
+    {
+        let needs_init = state.renderer.lock().unwrap().is_none();
+        if needs_init {
+            let r = Renderer::new(Arc::new(window.clone()))
+                .await
+                .map_err(|e| e.to_string())?;
+            let mut guard = state.renderer.lock().unwrap();
+            *guard = Some(r);
+        }
+    }
+
+    // Repaint to ensure background/viewport is synced
+    if let Some(r) = state.renderer.lock().unwrap().as_mut() {
+        let _ = r.repaint();
     }
 
     // 2. Start Playback Loop with session tracking
@@ -121,7 +127,22 @@ fn update_viewport(
     let mut renderer_guard = state.renderer.lock().unwrap();
     if let Some(r) = renderer_guard.as_mut() {
         r.set_viewport(x, y, width, height);
+        let _ = r.repaint(); // Redraw with current viewport clipping
     }
+}
+
+#[tauri::command]
+async fn init_renderer(window: Window, state: State<'_, PreviewState>) -> Result<(), String> {
+    let needs_init = state.renderer.lock().unwrap().is_none();
+    if needs_init {
+        let r = Renderer::new(Arc::new(window)).await.map_err(|e| e.to_string())?;
+        let mut renderer_guard = state.renderer.lock().unwrap();
+        *renderer_guard = Some(r);
+        if let Some(r) = renderer_guard.as_mut() {
+            let _ = r.repaint();
+        }
+    }
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -136,7 +157,7 @@ pub fn run() {
             is_playing: Arc::new(Mutex::new(false)),
             session_id: Arc::new(Mutex::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![open_video, toggle_quality, toggle_playback, update_viewport])
+        .invoke_handler(tauri::generate_handler![open_video, toggle_quality, toggle_playback, update_viewport, init_renderer])
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::Resized(size) => {
@@ -144,6 +165,7 @@ pub fn run() {
                     if let Ok(mut guard) = state.renderer.lock() {
                         if let Some(r) = guard.as_mut() {
                             r.resize(*size);
+                            let _ = r.repaint();
                         }
                     };
                 }
