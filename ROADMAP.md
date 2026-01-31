@@ -2,14 +2,23 @@
 
 This document outlines the planned feature development for the Kenichi Preview application.
 
-## Phase 1: Core Stability (Current Focus)
+## Phase 1: Core Stability
 - [x] Basic Video Playback (WGPU + FFmpeg)
-- [x] Hardware Acceleration (DirectX/Vulkan/Metal)
+- [x] Hardware Acceleration (DirectX/Vulkan/Metal/OpenGL)
 - [x] Play/Pause Controls
-- [x] **Fix Crash on Load (Stride Alignment)**: Resolve `STATUS_ACCESS_VIOLATION` by ensuring video frame data is correctly padded to 256 bytes per row as required by WGPU.
+- [x] **Fix Crash on Load (Stride Alignment)**: Resolved via row padding.
+- [x] **Fix Crash on Older GPUs (GT 730)**: Downgraded to WGPU 0.19 and blocked unstable backends (DX12).
+- [x] **Fix Video Geometry**: Corrected degenerate triangles and shader math.
 
-## Phase 2: Enhanced Media Support
+## Phase 2: UI & Layout Redesign (Current Focus)
+- [ ] **Transparency Fix**: Remove semi-opaque backgrounds to make the WGPU layer fully visible.
+- [ ] **Sidebar Layout**: Implement a three-pane layout (Sidebar | Preview | Controls) inspired by KenichiConverter.
+- [ ] **Playlist Management**: Support importing and switching between multiple video/image files.
+
+## Phase 3: Enhanced Media Support
 - [ ] **Audio Support**:
+    - Implement audio decoding using FFmpeg.
+    - Synchronize audio with video playback.
     - Implement audio decoding using FFmpeg.
     - Synchronize audio with video playback.
     - Add volume controls to the UI.

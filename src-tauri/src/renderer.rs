@@ -178,11 +178,6 @@ impl Renderer {
             return Ok(());
         }
         
-        eprintln!("[Renderer] Rendering frame: {}x{} stride: {}", width, height, stride);
-        eprintln!("[Renderer] Rendering frame: {}x{} stride: {}", width, height, stride);
-        
-        eprintln!("[Renderer] Rendering frame: {}x{} stride: {}", width, height, stride);
-        
         let output = match self.surface.get_current_texture() {
             Ok(output) => output,
             Err(SurfaceError::Outdated) | Err(SurfaceError::Lost) => {
@@ -318,10 +313,10 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color {
-                            r: 0.0,
+                            r: 1.0,
                             g: 0.0,
-                            b: 0.0,
-                            a: 0.0,
+                            b: 1.0,
+                            a: 1.0,
                         }),
                         store: StoreOp::Store,
                     },
@@ -335,7 +330,7 @@ impl Renderer {
             if let Some(bind_group) = &self.video_bind_group {
                 render_pass.set_bind_group(0, bind_group, &[]);
             }
-            render_pass.draw(0..6, 0..1);
+            render_pass.draw(0..3, 0..1);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
