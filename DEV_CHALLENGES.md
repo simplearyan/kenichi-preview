@@ -26,6 +26,32 @@
 - Refactored `renderer.rs` to align with the 0.19 API (e.g., changing `entry_point: Some("vs_main")` to `entry_point: "vs_main"`).
 - Removed fields that didn't exist in 0.19.
 
-## Current Challenge: Video Not Visible in UI
-**Status**: Rendering logs show "Render success", but the UI displays a black screen.
-**Plan**: Investigating the render pipeline, shader bindings, and surface presentation logic.
+## Challenge 4: Video Not Visible (Black Screen)
+**Issue**: Video was rendering but not visible in the UI. Rendering confirm logs were present.
+
+**Investigation**:
+- Found that the original vertex shader math for the full-screen quad was degenerate.
+- The Tauri/Webview layer had semi-opaque backgrounds that were dimming/blocking the WGPU layer.
+
+**Resolution**:
+- Implemented a high-performance **full-screen triangle** optimization in `shader.wgsl` (3 vertices instead of 6).
+- Removed semi-opaque backgrounds from the frontend, ensuring the "preview area" is fully transparent.
+
+## Challenge 5: Viewport Bleeding & Layout Alignment
+**Issue**: The WGPU video layer was drawing over the entire window background, appearing behind the sidebar and title bar.
+
+**Resolution**:
+- Implemented **WGPU Viewport Constraints**.
+- Frontend uses `getBoundingClientRect()` and `devicePixelRatio` to calculate the exact physical pixel coordinates of the preview area.
+- Rust backend exposes an `update_viewport` command to dynamically clip WGPU rendering to the intended container.
+
+## Challenge 6: Color Unsaturation (sRGB Mismatch)
+**Issue**: Video preview appeared washed out/unsaturated compared to dedicated media players.
+
+**Investigation**:
+- Screenshots compared against reference players confirmed a significant loss in color depth and saturation.
+- Diagnosed as a **Color Space Mismatch**: FFmpeg decodes to sRGB values, but the WGPU texture was initialized as `Rgba8Unorm`. When the shader outputted these to an `Srgb` surface, the hardware attempted to linearize already-gamma-corrected values, leading to a "washed out" look.
+
+**Resolution**:
+- Updated the video texture format to `Rgba8UnormSrgb` to enable automatic hardware-level conversion from sRGB to Linear space on texture sampling.
+- This ensures the shader works with mathematically correct intensities, and the surface correctly handles the final sRGB conversion for display.

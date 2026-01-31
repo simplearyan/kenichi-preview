@@ -15,6 +15,15 @@ pub struct Renderer {
     pub video_bind_group: Option<BindGroup>,
     // Buffer to handle stride alignment padding
     pub padding_buffer: Vec<u8>,
+    pub viewport: Option<Rect>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Rect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
 }
 
 impl Renderer {
@@ -161,6 +170,7 @@ impl Renderer {
             video_texture_view: None,
             video_bind_group: None,
             padding_buffer: Vec::new(),
+            viewport: None,
         })
     }
 
@@ -171,6 +181,10 @@ impl Renderer {
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
         }
+    }
+
+    pub fn set_viewport(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        self.viewport = Some(Rect { x, y, width, height });
     }
 
     pub fn render_frame(&mut self, rgba_data: &[u8], width: u32, height: u32, stride: u32) -> anyhow::Result<()> {
@@ -210,7 +224,7 @@ impl Renderer {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba8Unorm,
+                format: TextureFormat::Rgba8UnormSrgb,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
                 label: Some("Video Frame"),
                 view_formats: &[],
@@ -313,10 +327,10 @@ impl Renderer {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color {
-                            r: 1.0,
+                            r: 0.0,
                             g: 0.0,
-                            b: 1.0,
-                            a: 1.0,
+                            b: 0.0,
+                            a: 0.0,
                         }),
                         store: StoreOp::Store,
                     },
@@ -325,6 +339,10 @@ impl Renderer {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
+
+            if let Some(rect) = &self.viewport {
+                render_pass.set_viewport(rect.x, rect.y, rect.width, rect.height, 0.0, 1.0);
+            }
 
             render_pass.set_pipeline(&self.pipeline);
             if let Some(bind_group) = &self.video_bind_group {

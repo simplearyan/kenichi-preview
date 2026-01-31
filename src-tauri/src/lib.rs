@@ -108,8 +108,20 @@ fn toggle_playback(state: State<'_, PreviewState>) -> bool {
 fn toggle_quality(state: State<'_, PreviewState>, low_quality: bool) {
     let mut quality_guard = state.is_low_quality.lock().unwrap();
     *quality_guard = low_quality;
-    // Note: In a real app, this would trigger a decoder re-init.
-    // For this demo, the next video opened will use the new quality.
+}
+
+#[tauri::command]
+fn update_viewport(
+    state: State<'_, PreviewState>,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+) {
+    let mut renderer_guard = state.renderer.lock().unwrap();
+    if let Some(r) = renderer_guard.as_mut() {
+        r.set_viewport(x, y, width, height);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -124,7 +136,7 @@ pub fn run() {
             is_playing: Arc::new(Mutex::new(false)),
             session_id: Arc::new(Mutex::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![open_video, toggle_quality, toggle_playback])
+        .invoke_handler(tauri::generate_handler![open_video, toggle_quality, toggle_playback, update_viewport])
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::Resized(size) => {
