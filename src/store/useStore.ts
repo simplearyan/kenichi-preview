@@ -3,6 +3,7 @@ import { create } from "zustand";
 export interface MediaItem {
     path: string;
     name: string;
+    type?: 'Video' | 'Audio' | 'Image';
     thumbnail?: string;
     duration?: number;
     processing?: boolean;

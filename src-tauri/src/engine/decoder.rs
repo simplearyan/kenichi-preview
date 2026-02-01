@@ -8,13 +8,26 @@ use ffmpeg_next::util::frame::audio::Audio;
 use ffmpeg_next::util::frame::video::Video;
 use std::path::Path;
 
+pub enum DecodeResult {
+    Video {
+        data: Vec<u8>,
+        width: u32,
+        height: u32,
+        stride: u32,
+        pts: f64,
+    },
+    Audio {
+        pts: f64,
+    },
+}
+
 pub struct Decoder {
     input_ctx: ffmpeg::format::context::Input,
-    video_stream_index: usize,
+    pub video_stream_index: Option<usize>,
     audio_stream_index: Option<usize>,
-    decoder: ffmpeg::decoder::Video,
+    decoder: Option<ffmpeg::decoder::Video>,
     audio_decoder: Option<ffmpeg::decoder::Audio>,
-    scaler: Context,
+    scaler: Option<Context>,
     resampler: Option<Resampler>,
     // Metadata
     duration_secs: f64,
@@ -23,50 +36,70 @@ pub struct Decoder {
     raw_frame: Video,
     scaled_frame: Video,
     audio_frame: Audio,
+    resampled_frame: Audio,
     // Audio Buffer (Interleaved samples)
     pub audio_buffer: Vec<f32>,
+    pub is_static_image: bool,
+    audio_pts_counter: u64,
 }
 
 impl Decoder {
     pub fn new(path: &Path, quality: QualityMode) -> anyhow::Result<Self> {
-        eprintln!("[Decoder] Initializing FFmpeg...");
+        eprintln!("[Decoder] Opening media: {:?}", path);
         ffmpeg::init()?;
+        let input_ctx = input(&path).map_err(|e| {
+            eprintln!("[Decoder] Failed to open input for {:?}: {}", path, e);
+            anyhow::anyhow!("FFmpeg input error: {}", e)
+        })?;
 
-        let input_ctx = input(&path)?;
-        let video_stream = input_ctx
-            .streams()
-            .best(Type::Video)
-            .ok_or_else(|| anyhow::anyhow!("No video stream found"))?;
+        // Video Setup
+        let video_stream = input_ctx.streams().best(Type::Video);
+        let mut decoder = None;
+        let mut scaler = None;
+        let mut video_stream_index = None;
+        let mut time_base = ffmpeg::util::rational::Rational(0, 1);
 
-        let video_stream_index = video_stream.index();
-        let context_decoder =
-            ffmpeg::codec::context::Context::from_parameters(video_stream.parameters())?;
+        if let Some(s) = video_stream {
+            eprintln!("[Decoder] Found video stream at index {}", s.index());
+            let context_decoder = ffmpeg::codec::context::Context::from_parameters(s.parameters())?;
+            let ad = context_decoder.decoder().video().map_err(|e| {
+                eprintln!("[Decoder] Failed to open video decoder: {}", e);
+                e
+            })?;
 
-        let decoder = context_decoder.decoder().video()?;
+            let width = ad.width();
+            let height = ad.height();
+            let (target_width, target_height) = match quality {
+                QualityMode::Native => (width, height),
+                QualityMode::Fast => (width / 2, height / 2),
+                QualityMode::Proxy => (width / 4, height / 4),
+            };
 
-        let width = decoder.width();
-        let height = decoder.height();
+            scaler = Some(
+                Context::get(
+                    ad.format(),
+                    width,
+                    height,
+                    Pixel::RGBA,
+                    target_width,
+                    target_height,
+                    Flags::BILINEAR,
+                )
+                .map_err(|e| {
+                    eprintln!("[Decoder] Failed to initialize scaler: {}", e);
+                    e
+                })?,
+            );
 
-        let (target_width, target_height) = match quality {
-            QualityMode::Native => (width, height),
-            QualityMode::Fast => (width / 2, height / 2),
-            QualityMode::Proxy => (width / 4, height / 4),
-        };
-
-        let scaler = Context::get(
-            decoder.format(),
-            width,
-            height,
-            Pixel::RGBA,
-            target_width,
-            target_height,
-            Flags::BILINEAR,
-        )?;
+            video_stream_index = Some(s.index());
+            time_base = s.time_base();
+            decoder = Some(ad);
+        }
 
         let duration_secs = input_ctx.duration() as f64 / 1_000_000.0;
-        let time_base = video_stream.time_base();
+        eprintln!("[Decoder] Media duration identified: {}s", duration_secs);
 
-        // Audio Setup based on QualityMode
+        // Audio Setup
         let audio_stream = input_ctx.streams().best(Type::Audio);
         let mut audio_decoder = None;
         let mut audio_stream_index = None;
@@ -74,39 +107,67 @@ impl Decoder {
         let mut audio_time_base = ffmpeg::util::rational::Rational(0, 1);
 
         if let Some(s) = audio_stream {
+            eprintln!("[Decoder] Found audio stream at index {}", s.index());
             let context = ffmpeg::codec::context::Context::from_parameters(s.parameters())?;
-            let ad = context.decoder().audio()?;
+            let ad = context.decoder().audio().map_err(|e| {
+                eprintln!("[Decoder] Failed to open audio decoder: {}", e);
+                e
+            })?;
             audio_stream_index = Some(s.index());
             audio_time_base = s.time_base();
 
-            // Always use 48kHz Stereo for hardware compatibility (cpal default)
-            // We only scale Video resolution for performance.
             let target_rate = 48000;
             let target_layout = ffmpeg::channel_layout::ChannelLayout::STEREO;
 
+            // Defensive Layout Check: WAVs often have unspecified layout in parameters
+            let src_layout = if ad.channel_layout().is_empty() {
+                let layout = ffmpeg::channel_layout::ChannelLayout::default(ad.channels() as i32);
+                eprintln!(
+                    "[Decoder] Audio layout unspecified, defaulting to {:?} based on {} channels",
+                    layout,
+                    ad.channels()
+                );
+                layout
+            } else {
+                ad.channel_layout()
+            };
+
             eprintln!(
-                "[Decoder] Audio format set to: {}Hz, {:?}",
-                target_rate,
-                if target_layout == ffmpeg::channel_layout::ChannelLayout::MONO {
-                    "Mono"
-                } else {
-                    "Stereo"
-                }
+                "[Decoder] Audio: {:?} format, {}Hz, {:?} ({} channels)",
+                ad.format(),
+                ad.rate(),
+                src_layout,
+                ad.channels()
             );
 
-            // Setup Resampler: Convert to Float32 with fixed 48k/Stereo
-            resampler = Some(ffmpeg::software::resampling::context::Context::get(
-                ad.format(),
-                ad.channel_layout(),
-                ad.rate(),
-                ffmpeg::util::format::sample::Sample::F32(
-                    ffmpeg::util::format::sample::Type::Packed,
-                ),
-                target_layout,
-                target_rate,
-            )?);
+            resampler = Some(
+                ffmpeg::software::resampling::context::Context::get(
+                    ad.format(),
+                    src_layout,
+                    ad.rate(),
+                    ffmpeg::util::format::sample::Sample::F32(
+                        ffmpeg::util::format::sample::Type::Packed,
+                    ),
+                    target_layout,
+                    target_rate,
+                )
+                .map_err(|e| {
+                    eprintln!("[Decoder] Failed to initialize resampler: {}", e);
+                    e
+                })?,
+            );
             audio_decoder = Some(ad);
         }
+
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let is_static_image = matches!(
+            ext.as_str(),
+            "jpg" | "jpeg" | "png" | "webp" | "tiff" | "tif" | "bmp"
+        );
 
         Ok(Self {
             input_ctx,
@@ -122,65 +183,118 @@ impl Decoder {
             raw_frame: Video::empty(),
             scaled_frame: Video::empty(),
             audio_frame: Audio::empty(),
+            resampled_frame: Audio::empty(),
             audio_buffer: Vec::with_capacity(4096),
+            is_static_image,
+            audio_pts_counter: 0,
         })
     }
 
     pub fn get_metadata(&self) -> (f64, u32, u32) {
-        (
-            self.duration_secs,
-            self.decoder.width(),
-            self.decoder.height(),
-        )
+        let (w, h) = if let Some(ref d) = self.decoder {
+            (d.width(), d.height())
+        } else {
+            (0, 0)
+        };
+        (self.duration_secs, w, h)
     }
 
-    pub fn decode_next_frame(&mut self) -> anyhow::Result<Option<(Vec<u8>, u32, u32, u32, f64)>> {
+    pub fn decode_next(&mut self) -> anyhow::Result<Option<DecodeResult>> {
         for (stream, packet) in self.input_ctx.packets() {
-            if stream.index() == self.video_stream_index {
-                self.decoder.send_packet(&packet)?;
-                if self.decoder.receive_frame(&mut self.raw_frame).is_ok() {
-                    self.scaler.run(&self.raw_frame, &mut self.scaled_frame)?;
+            let pts = packet.pts().unwrap_or(0);
 
-                    let stride = self.scaled_frame.stride(0) as i32;
-                    let width = self.scaled_frame.width();
-                    let height = self.scaled_frame.height();
+            if Some(stream.index()) == self.video_stream_index {
+                if let (Some(ref mut d), Some(ref mut s)) = (&mut self.decoder, &mut self.scaler) {
+                    d.send_packet(&packet)?;
+                    if d.receive_frame(&mut self.raw_frame).is_ok() {
+                        s.run(&self.raw_frame, &mut self.scaled_frame)?;
 
-                    if stride <= 0 {
-                        eprintln!("Invalid stride: {}", stride);
-                        return Ok(None);
+                        let stride = self.scaled_frame.stride(0) as i32;
+                        let width = self.scaled_frame.width();
+                        let height = self.scaled_frame.height();
+
+                        if stride <= 0 {
+                            continue;
+                        }
+
+                        let pts_secs =
+                            pts as f64 * (self.time_base.0 as f64 / self.time_base.1 as f64);
+
+                        return Ok(Some(DecodeResult::Video {
+                            data: self.scaled_frame.data(0).to_vec(),
+                            width,
+                            height,
+                            stride: stride as u32,
+                            pts: pts_secs,
+                        }));
                     }
-
-                    let pts = self.raw_frame.pts().unwrap_or(0);
-                    let pts_secs = pts as f64 * (self.time_base.0 as f64 / self.time_base.1 as f64);
-
-                    return Ok(Some((
-                        self.scaled_frame.data(0).to_vec(),
-                        width,
-                        height,
-                        stride as u32,
-                        pts_secs,
-                    )));
                 }
             } else if Some(stream.index()) == self.audio_stream_index {
+                let audio_time_base = stream.time_base();
+                let _pts_secs = pts as f64 * (audio_time_base.0 as f64 / audio_time_base.1 as f64);
+
                 if let Some(ref mut ad) = self.audio_decoder {
                     ad.send_packet(&packet)?;
                     while ad.receive_frame(&mut self.audio_frame).is_ok() {
                         if let Some(ref mut resampler) = self.resampler {
-                            let mut resampled = Audio::empty();
-                            resampler.run(&self.audio_frame, &mut resampled)?;
+                            // Correctly size the resampled frame
+                            // We resample to 48000 Hz Stereo
+                            let target_rate = 48000;
+                            let delay = resampler.delay().map(|d| d.input).unwrap_or(0);
+                            let out_samples = ((self.audio_frame.samples() as i64 + delay)
+                                * target_rate as i64
+                                / self.audio_frame.rate() as i64)
+                                as usize;
+
+                            self.resampled_frame.set_format(
+                                ffmpeg::util::format::sample::Sample::F32(
+                                    ffmpeg::util::format::sample::Type::Packed,
+                                ),
+                            );
+                            self.resampled_frame
+                                .set_channel_layout(ffmpeg::channel_layout::ChannelLayout::STEREO);
+                            self.resampled_frame.set_rate(target_rate);
+                            self.resampled_frame.set_samples(out_samples);
+                            unsafe {
+                                self.resampled_frame.alloc(
+                                    ffmpeg::util::format::sample::Sample::F32(
+                                        ffmpeg::util::format::sample::Type::Packed,
+                                    ),
+                                    out_samples,
+                                    ffmpeg::channel_layout::ChannelLayout::STEREO,
+                                );
+                            }
+
+                            let _run_result =
+                                resampler.run(&self.audio_frame, &mut self.resampled_frame)?;
+
+                            // ffmpeg-next 6.1 run() returns Result<usize, Error> or Option<Delay>
+                            // but actually it usually returns usize in Result.
+                            // The compiler says Option<Delay> so we handle that if it's the case.
+                            // If it's usize, we convert it.
+                            let converted = self.resampled_frame.samples();
 
                             // Extract Float32 samples
-                            let data = resampled.data(0);
+                            let data = self.resampled_frame.data(0);
+                            // Only take the samples that were actually converted
                             let samples: &[f32] = unsafe {
                                 std::slice::from_raw_parts(
                                     data.as_ptr() as *const f32,
-                                    data.len() / 4,
+                                    converted * 2, // 2 channels
                                 )
                             };
                             self.audio_buffer.extend_from_slice(samples);
+                            self.audio_pts_counter += converted as u64;
                         }
                     }
                 }
+
+                // Use sample counter for reliable audio timing (48kHz Stereo)
+                let calculated_pts = self.audio_pts_counter as f64 / 48000.0;
+
+                return Ok(Some(DecodeResult::Audio {
+                    pts: calculated_pts,
+                }));
             }
         }
 

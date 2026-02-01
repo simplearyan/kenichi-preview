@@ -1,4 +1,4 @@
-import { ListVideo, Plus, Film } from "lucide-react";
+import { ListVideo, Plus, Film, Music, Image as ImageIcon } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { usePlayback } from "../hooks/usePlayback";
 import { clsx, type ClassValue } from "clsx";
@@ -68,6 +68,10 @@ export const Sidebar = () => {
                                         />
                                     ) : item.processing ? (
                                         <div className="w-1.5 h-1.5 rounded-full bg-brand-yellow animate-pulse" />
+                                    ) : item.type === 'Audio' ? (
+                                        <Music className="w-4 h-4 text-zinc-500" />
+                                    ) : item.type === 'Image' ? (
+                                        <ImageIcon className="w-4 h-4 text-zinc-500" />
                                     ) : (
                                         <Film className="w-4 h-4 text-zinc-500" />
                                     )}
@@ -81,16 +85,16 @@ export const Sidebar = () => {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="text-[9px] text-zinc-600 truncate uppercase tracking-tighter">
-                                            {item.path.toLowerCase().endsWith('.mp3') ? 'Audio' : 'Video'}
+                                            {item.type || (item.path.toLowerCase().endsWith('.mp3') ? 'Audio' : 'Video')}
                                         </div>
-                                        {item.duration > 0 && (
+                                        {item.duration && item.duration > 0 ? (
                                             <>
                                                 <div className="w-1 h-1 rounded-full bg-zinc-800" />
                                                 <div className="text-[9px] text-zinc-500 font-mono">
                                                     {formatDuration(item.duration)}
                                                 </div>
                                             </>
-                                        )}
+                                        ) : null}
                                     </div>
                                 </div>
                             </button>

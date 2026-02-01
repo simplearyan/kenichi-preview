@@ -53,11 +53,37 @@ pub async fn open_video(
             }
         };
 
+        if decoder.video_stream_index.is_none() {
+            let mut guard = renderer_clone.lock().unwrap();
+            if let Some(r) = guard.as_mut() {
+                r.clear_video();
+                let _ = r.repaint();
+            }
+        }
+
+        let mut current_time;
         let (duration, _, _) = decoder.get_metadata();
 
-        while let Ok(Some(frame_info)) = decoder.decode_next_frame() {
+        while let Ok(Some(result)) = decoder.decode_next() {
             if *session_id_clone.lock().unwrap() != current_session {
                 break;
+            }
+
+            match result {
+                crate::engine::decoder::DecodeResult::Video { data, width, height, stride, pts } => {
+                     current_time = pts;
+                     let mut guard = renderer_clone.lock().unwrap();
+                     if let Some(r) = guard.as_mut() {
+                         let _ = r.render_frame(&data, width, height, stride);
+                     }
+                     // Only sleep for video pacing
+                     std::thread::sleep(std::time::Duration::from_millis(30)); 
+                }
+                crate::engine::decoder::DecodeResult::Audio { pts } => {
+                     current_time = pts;
+                     // Don't sleep here, but yield to prevent CPU pinning if buffer is full
+                     std::thread::yield_now();
+                }
             }
 
             if !decoder.audio_buffer.is_empty() {
@@ -65,6 +91,11 @@ pub async fn open_video(
                     if let Some(ref mut producer) = *guard {
                         let pushed = producer.push_slice(&decoder.audio_buffer);
                         decoder.audio_buffer.drain(..pushed);
+                        
+                        // If buffer is very full, slow down slightly
+                        if producer.len() > 24000 { // ~0.5s of audio
+                            std::thread::sleep(std::time::Duration::from_millis(5));
+                        }
                     }
                 }
             }
@@ -76,18 +107,15 @@ pub async fn open_video(
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
 
-            let (frame_data, w, h, stride, current_time) = frame_info;
-            
             let _ = window.emit("playback-update", crate::engine::state::PlaybackPayload {
                 current_time,
                 duration,
             });
+        }
 
-            let mut guard = renderer_clone.lock().unwrap();
-            if let Some(r) = guard.as_mut() {
-                let _ = r.render_frame(&frame_data, w, h, stride);
-            }
-            std::thread::sleep(std::time::Duration::from_millis(30)); 
+        // Keep session alive for static images or just to show the last frame
+        while *session_id_clone.lock().unwrap() == current_session {
+             std::thread::sleep(std::time::Duration::from_millis(100));
         }
     });
 

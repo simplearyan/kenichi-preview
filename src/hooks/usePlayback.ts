@@ -47,7 +47,7 @@ export const usePlayback = () => {
             filters: [
                 {
                     name: "Media",
-                    extensions: ["mp4", "mkv", "avi", "mov", "webm", "mp3", "wav", "flac", "m4a"],
+                    extensions: ["mp4", "mkv", "avi", "mov", "webm", "mp3", "wav", "flac", "m4a", "jpg", "jpeg", "png", "webp", "bmp", "tiff", "tif"],
                 },
             ],
         });

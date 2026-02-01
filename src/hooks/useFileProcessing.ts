@@ -49,48 +49,79 @@ export function useFileProcessing() {
                 return;
             }
 
-            // Generate thumbnail using FFmpeg sidecar
-            const command = Command.sidecar('bin/ffmpeg', [
-                '-y',
-                '-ss', '00:00:01', // Sample at 1s
-                '-i', item.path,
-                '-vframes', '1',
-                '-vf', 'scale=320:-1', // Scale to width 320, maintain aspect
-                '-q:v', '4', // Quality 4 (1-31, lower is better)
-                thumbPath
+            // 1. First, Probing Metadata (Fast)
+            const ffprobe = Command.sidecar('bin/ffprobe', [
+                '-v', 'error',
+                '-show_entries', 'format=duration:stream=codec_type',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                item.path
             ]);
+            const probeResult = await ffprobe.execute();
 
-            const result = await command.execute();
+            let duration = 0;
+            let type: 'Video' | 'Audio' | 'Image' = 'Video';
 
-            if (result.code === 0) {
-                // Get duration too
-                const ffprobe = Command.sidecar('bin/ffprobe', [
-                    '-v', 'error',
-                    '-show_entries', 'format=duration',
-                    '-of', 'default=noprint_wrappers=1:nokey=1',
-                    item.path
-                ]);
-                const probeResult = await ffprobe.execute();
-                let duration = 0;
-                if (probeResult.code === 0) {
-                    duration = parseFloat(probeResult.stdout);
+            if (probeResult.code === 0) {
+                const lines = probeResult.stdout.trim().split('\n');
+                duration = parseFloat(lines[0]) || 0;
+
+                const streams = lines.slice(1).map(l => l.trim().toLowerCase());
+                const hasVideo = streams.includes('video');
+                const hasAudio = streams.includes('audio');
+
+                const ext = item.path.split('.').pop()?.toLowerCase();
+                const isImageExt = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif', 'bmp'].includes(ext || '');
+
+                if (isImageExt) {
+                    type = 'Image';
+                } else if (!hasVideo && hasAudio) {
+                    type = 'Audio';
+                } else {
+                    type = 'Video';
+                }
+            }
+
+            // 2. Generate thumbnail if not audio
+            if (type !== 'Audio') {
+                const hash = await hashString(item.path);
+                const sep = navigator.userAgent.includes('Windows') ? '\\' : '/';
+                const thumbPath = `${thumbDir}${sep}${hash}.jpg`;
+
+                if (!(await exists(thumbPath))) {
+                    const command = Command.sidecar('bin/ffmpeg', [
+                        '-y',
+                        '-ss', type === 'Image' ? '0' : '00:00:01',
+                        '-i', item.path,
+                        '-vframes', '1',
+                        '-vf', 'scale=320:-1',
+                        '-q:v', '4',
+                        thumbPath
+                    ]);
+                    await command.execute();
                 }
 
-                const fileBytes = await readFile(thumbPath);
-                const base64String = btoa(
-                    new Uint8Array(fileBytes)
-                        .reduce((data, byte) => data + String.fromCharCode(byte), '')
-                );
-
-                updateMediaItem(index, {
-                    thumbnail: `data:image/jpeg;base64,${base64String}`,
-                    duration,
-                    processing: false
-                });
-            } else {
-                console.error('FFmpeg error:', result.stderr);
-                updateMediaItem(index, { processing: false });
+                if (await exists(thumbPath)) {
+                    const fileBytes = await readFile(thumbPath);
+                    const base64String = btoa(
+                        new Uint8Array(fileBytes)
+                            .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                    );
+                    updateMediaItem(index, {
+                        thumbnail: `data:image/jpeg;base64,${base64String}`,
+                        duration,
+                        type,
+                        processing: false
+                    });
+                    return;
+                }
             }
+
+            // If audio or thumbnail failed
+            updateMediaItem(index, {
+                duration,
+                type,
+                processing: false
+            });
         } catch (e) {
             console.error('Processing error:', e);
             updateMediaItem(index, { processing: false });

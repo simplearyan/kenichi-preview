@@ -31,18 +31,18 @@ This document outlines the planned feature development for the Kenichi Preview a
     - [x] Add sleek cycle-button UI in the footer.
     - [x] Automatic video reload on quality change for instant effect.
 
-## Phase 4: Audio & Multi-Media Support [DONE]
-- [x] **Audio Support**:
-    - [x] Implemented audio decoding using FFmpeg and playback via `cpal`.
-    - [x] Synchronized audio samples with video frame presentation.
-    - [x] Added master volume and mute controls to the footer.
-- [x] **Media Card Thumbnails**:
-    - [x] Automated background thumbnail extraction using FFmpeg sidecar.
-    - [x] Implemented metadata probing (duration) via ffprobe sidecar.
-    - [x] Developed a robust persistent cache system with path hashing.
-- [x] **Image Support**:
-    - [x] Added support for static images (JPG, PNG, WEBP) in the backend.
-    - [x] Unified playback state to handle both temporal (video) and static (image) assets.
+## Phase 4: Unified Multi-Media Support [DONE]
+- [x] **Core Audio Decoding**: Implemented audio decoding using FFmpeg and playback via `cpal`.
+- [x] **Enhanced Audio-Only Support**:
+    - [x] Handle audio files (MP3, WAV, etc.) without video streams.
+    - [x] Display audio-specific metadata and visual placeholders.
+- [x] **Static Image Support**:
+    - [x] Preview JPG, PNG, WEBP, and TIFF images using the WGPU renderer.
+    - [x] Optimized image decoding to avoid unnecessary playback loops.
+- [x] **Media Library Metadata**:
+    - [x] Background thumbnail extraction using FFmpeg.
+    - [x] Metadata probing (duration/resolution) via ffprobe.
+    - [x] Persistent thumbnail cache with Base64 delivery for stability.
 
 ## Phase 5: Advanced Playback & UX (Current Focus)
 - [ ] **Precision Review Tools**:

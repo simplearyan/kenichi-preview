@@ -189,12 +189,19 @@ impl Renderer {
         self.current_aspect_mode = mode;
     }
 
+    pub fn clear_video(&mut self) {
+        self.video_texture = None;
+        self.video_texture_view = None;
+        self.video_bind_group = None;
+        self.last_video_size = None;
+    }
+
     fn calculate_actual_viewport(&self) -> Option<Rect> {
         let container = self.container_viewport?;
         let surface_w = self.config.width as f32;
         let surface_h = self.config.height as f32;
 
-        let mut final_rect = if let Some((v_w, v_h)) = self.last_video_size {
+        let final_rect = if let Some((v_w, v_h)) = self.last_video_size {
             if v_w == 0 || v_h == 0 {
                 container
             } else {
