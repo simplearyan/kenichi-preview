@@ -139,7 +139,8 @@ fn update_viewport(
     let mut renderer_guard = state.renderer.lock().unwrap();
     if let Some(r) = renderer_guard.as_mut() {
         r.set_viewport(x, y, width, height);
-        let _ = r.repaint(); // Redraw with current viewport clipping
+        // eprintln!("[Backend] Viewport updated: {}x{} at {},{}", width, height, x, y);
+        let _ = r.repaint(); 
     }
 }
 
@@ -147,6 +148,7 @@ fn update_viewport(
 fn set_aspect_ratio(state: State<'_, PreviewState>, mode: renderer::AspectMode) {
     let mut renderer_guard = state.renderer.lock().unwrap();
     if let Some(r) = renderer_guard.as_mut() {
+        eprintln!("[Backend] Aspect mode changed to: {:?}", mode);
         r.set_aspect_mode(mode);
         let _ = r.repaint();
     }

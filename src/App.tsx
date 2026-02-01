@@ -5,8 +5,11 @@ import { Sidebar } from "./components/Sidebar";
 import { PreviewArea } from "./components/PreviewArea";
 import { ControlBar } from "./components/ControlBar";
 import { useTauriEvents } from "./hooks/useTauriEvents";
+import { useStore } from "./store/useStore";
 
 function App() {
+  const setIsRendererReady = useStore((state) => state.setIsRendererReady);
+
   // Initialize Global Listeners
   useTauriEvents();
 
@@ -15,6 +18,7 @@ function App() {
     const init = async () => {
       try {
         await invoke("init_renderer");
+        setIsRendererReady(true);
       } catch (err) {
         console.error("Failed to init renderer:", err);
       }

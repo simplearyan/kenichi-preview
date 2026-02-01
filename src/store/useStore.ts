@@ -8,6 +8,7 @@ interface PlaybackState {
     aspectMode: "Fit" | "Stretch" | "Cinema" | "Classic" | "Wide";
     playlist: string[];
     currentIndex: number | null;
+    isRendererReady: boolean;
 
     // Actions
     setIsPlaying: (playing: boolean) => void;
@@ -17,6 +18,7 @@ interface PlaybackState {
     setAspectMode: (mode: "Fit" | "Stretch" | "Cinema" | "Classic" | "Wide") => void;
     setPlaylist: (playlist: string[] | ((prev: string[]) => string[])) => void;
     setCurrentIndex: (index: number | null) => void;
+    setIsRendererReady: (ready: boolean) => void;
 }
 
 export const useStore = create<PlaybackState>((set) => ({
@@ -27,6 +29,7 @@ export const useStore = create<PlaybackState>((set) => ({
     aspectMode: "Fit",
     playlist: [],
     currentIndex: null,
+    isRendererReady: false,
 
     setIsPlaying: (isPlaying) => set({ isPlaying }),
     setCurrentTime: (currentTime) => set({ currentTime }),
@@ -37,4 +40,5 @@ export const useStore = create<PlaybackState>((set) => ({
         playlist: typeof playlist === "function" ? playlist(state.playlist) : playlist
     })),
     setCurrentIndex: (currentIndex) => set({ currentIndex }),
+    setIsRendererReady: (isRendererReady) => set({ isRendererReady }),
 }));

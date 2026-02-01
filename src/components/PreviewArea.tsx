@@ -12,14 +12,18 @@ function cn(...inputs: ClassValue[]) {
 
 export const PreviewArea = () => {
     const mainRef = useRef<HTMLElement>(null);
-    const { isPlaying, currentIndex } = useStore();
+    const isRendererReady = useStore((state) => state.isRendererReady);
+    const currentIndex = useStore((state) => state.currentIndex);
+    const isPlaying = useStore((state) => state.isPlaying);
+
     const { handleImport, handleTogglePlayback } = usePlayback();
 
     const updateViewport = async () => {
-        if (!mainRef.current) return;
+        if (!mainRef.current || !isRendererReady) return;
         const rect = mainRef.current.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
 
+        console.log(`[Viewport] Syncing to rect:`, rect);
         await invoke("update_viewport", {
             x: rect.left * dpr,
             y: rect.top * dpr,
@@ -29,10 +33,17 @@ export const PreviewArea = () => {
     };
 
     useEffect(() => {
-        window.addEventListener("resize", updateViewport);
-        updateViewport(); // Initial sync
-        return () => window.removeEventListener("resize", updateViewport);
-    }, []);
+        if (!mainRef.current) return;
+
+        const observer = new ResizeObserver(() => {
+            updateViewport();
+        });
+
+        observer.observe(mainRef.current);
+        updateViewport();
+
+        return () => observer.disconnect();
+    }, [isRendererReady, currentIndex]);
 
     return (
         <main
