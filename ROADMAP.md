@@ -19,7 +19,7 @@ This document outlines the planned feature development for the Kenichi Preview a
 - [x] **Color Accuracy**: sRGB texture format used for vibrant, accurate colors.
 
 ## Phase 3: Media Polish & Controls (Current Focus)
-- [ ] **Playhead & Duration Display**:
+- [x] **Playhead & Duration Display**:
     - Implement real-time playback time and total duration display in the footer.
     - Synchronize state between Rust backend and React frontend.
 - [ ] **Aspect Ratio Control**:

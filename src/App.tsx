@@ -16,10 +16,18 @@ function App() {
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
   const [isLowQuality, setIsLowQuality] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const appWindow = getCurrentWindow();
   const mainRef = useRef<HTMLElement>(null);
 
   const currentFile = currentIndex !== null ? playlist[currentIndex] : null;
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const updateViewport = async () => {
     if (!mainRef.current) return;
@@ -109,6 +117,11 @@ function App() {
       }
     });
 
+    const unlistenPlayback = listen("playback-update", (event: any) => {
+      setCurrentTime(event.payload.current_time);
+      setDuration(event.payload.duration);
+    });
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space") {
         e.preventDefault();
@@ -121,6 +134,7 @@ function App() {
 
     return () => {
       unlisten.then((fn) => fn());
+      unlistenPlayback.then((fn) => fn());
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [currentIndex, playlist, isPlaying]);
@@ -291,6 +305,12 @@ function App() {
             <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Active Preview</span>
             <div className="text-sm font-bold text-white truncate max-w-[200px]">
               {currentFile ? currentFile.split(/[\\/]/).pop() : "Idle"}
+            </div>
+          </div>
+          <div className="flex flex-col ml-10">
+            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Time / Duration</span>
+            <div className="text-sm font-mono font-bold text-brand-yellow tabular-nums">
+              {formatTime(currentTime)} <span className="text-zinc-600 font-normal">/</span> {formatTime(duration)}
             </div>
           </div>
         </div>

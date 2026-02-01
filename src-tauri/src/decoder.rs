@@ -10,6 +10,9 @@ pub struct Decoder {
     video_stream_index: usize,
     decoder: ffmpeg::decoder::Video,
     scaler: Context,
+    // Metadata
+    duration_secs: f64,
+    time_base: ffmpeg::util::rational::Rational,
     // Caching frames to avoid re-allocation
     raw_frame: Video,
     scaled_frame: Video,
@@ -55,9 +58,13 @@ impl Decoder {
             target_height,
             Flags::BILINEAR,
         )?;
+
+        let duration_secs = input_ctx.duration() as f64 / 1_000_000.0;
+        let time_base = stream.time_base();
+
         eprintln!(
-            "[Decoder] Context and Scaler created. W: {}, H: {}",
-            width, height
+            "[Decoder] Context created. W: {}, H: {}, Duration: {:.2}s",
+            width, height, duration_secs
         );
 
         Ok(Self {
@@ -65,12 +72,22 @@ impl Decoder {
             video_stream_index,
             decoder,
             scaler,
+            duration_secs,
+            time_base,
             raw_frame: Video::empty(),
             scaled_frame: Video::empty(),
         })
     }
 
-    pub fn decode_next_frame(&mut self) -> anyhow::Result<Option<(Vec<u8>, u32, u32, u32)>> {
+    pub fn get_metadata(&self) -> (f64, u32, u32) {
+        (
+            self.duration_secs,
+            self.decoder.width(),
+            self.decoder.height(),
+        )
+    }
+
+    pub fn decode_next_frame(&mut self) -> anyhow::Result<Option<(Vec<u8>, u32, u32, u32, f64)>> {
         for (stream, packet) in self.input_ctx.packets() {
             if stream.index() == self.video_stream_index {
                 self.decoder.send_packet(&packet)?;
@@ -89,14 +106,17 @@ impl Decoder {
                         return Ok(None);
                     }
 
-                    // println!("Frame decoded. W: {}, H: {}, Stride: {}", width, height, stride);
+                    // Calculate current time in seconds
+                    let pts = self.raw_frame.pts().unwrap_or(0);
+                    let pts_secs = pts as f64 * (self.time_base.0 as f64 / self.time_base.1 as f64);
 
-                    // Return the raw RGBA data with stride
+                    // Return the raw RGBA data with stride and current time
                     return Ok(Some((
                         self.scaled_frame.data(0).to_vec(),
                         width,
                         height,
                         stride as u32,
+                        pts_secs,
                     )));
                 }
             }

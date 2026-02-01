@@ -3,7 +3,7 @@ mod decoder;
 
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
-use tauri::{State, Window, Manager};
+use tauri::{State, Window, Manager, Emitter};
 use renderer::Renderer;
 use decoder::Decoder;
 
@@ -12,6 +12,12 @@ pub struct PreviewState {
     pub is_low_quality: Arc<Mutex<bool>>,
     pub is_playing: Arc<Mutex<bool>>,
     pub session_id: Arc<Mutex<u64>>,
+}
+
+#[derive(Clone, serde::Serialize)]
+struct PlaybackPayload {
+    current_time: f64,
+    duration: f64,
 }
 
 #[tauri::command]
@@ -66,34 +72,33 @@ async fn open_video(
             }
         };
 
+        let (duration, _, _) = decoder.get_metadata();
+
         while let Ok(Some(frame_info)) = decoder.decode_next_frame() {
-            println!("Frame received in thread. Session: {}", *session_id_clone.lock().unwrap());
-            
             // Check if this session is still valid
             if *session_id_clone.lock().unwrap() != current_session {
-                println!("[Thread] Session {} ended.", current_session);
                 break;
             }
 
             // Check if we are paused
             while !*playing_clone.lock().unwrap() {
-                // Also check session during pause
                 if *session_id_clone.lock().unwrap() != current_session {
                     return;
                 }
                 std::thread::sleep(std::time::Duration::from_millis(100));
             }
 
-            let (frame_data, w, h, stride) = frame_info;
+            let (frame_data, w, h, stride, current_time) = frame_info;
+            
+            // Emit progress to frontend
+            let _ = window.emit("playback-update", PlaybackPayload {
+                current_time,
+                duration,
+            });
+
             let mut guard = renderer_clone.lock().unwrap();
             if let Some(r) = guard.as_mut() {
-                if let Err(e) = r.render_frame(&frame_data, w, h, stride) {
-                    eprintln!("Render error: {}", e);
-                    // If surface is lost/outdated, it might need a resize event or just a reconfigure
-                    // The renderer now handles reconfigure internally, so we just log it.
-                } else {
-                    println!("Render success.");
-                }
+                let _ = r.render_frame(&frame_data, w, h, stride);
             }
             // TODO: Use actual FPS from decoder
             std::thread::sleep(std::time::Duration::from_millis(30)); 
