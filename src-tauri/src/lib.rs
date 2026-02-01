@@ -6,12 +6,16 @@ use std::path::PathBuf;
 use tauri::{State, Window, Manager, Emitter};
 use renderer::Renderer;
 use decoder::Decoder;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+use ringbuf::HeapRb;
 
 pub struct PreviewState {
     pub renderer: Arc<Mutex<Option<Renderer>>>,
     pub quality_mode: Arc<Mutex<QualityMode>>,
     pub is_playing: Arc<Mutex<bool>>,
     pub session_id: Arc<Mutex<u64>>,
+    pub audio_producer: Arc<Mutex<Option<ringbuf::HeapProducer<f32>>>>,
+    pub volume: Arc<Mutex<f32>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -57,6 +61,7 @@ async fn open_video(
     let renderer_clone = state.renderer.clone();
     let playing_clone = state.is_playing.clone();
     let session_id_clone = state.session_id.clone();
+    let audio_producer_clone = state.audio_producer.clone();
     
     let current_session = {
         let mut s = state.session_id.lock().unwrap();
@@ -66,11 +71,10 @@ async fn open_video(
 
     {
         let mut p = state.is_playing.lock().unwrap();
-        *p = true; // Set to playing by default when opened
+        *p = true; 
     }
     
     std::thread::spawn(move || {
-        // Initialize Decoder
         let mut decoder = match Decoder::new(&path, quality_mode) {
             Ok(d) => d,
             Err(e) => {
@@ -82,12 +86,21 @@ async fn open_video(
         let (duration, _, _) = decoder.get_metadata();
 
         while let Ok(Some(frame_info)) = decoder.decode_next_frame() {
-            // Check if this session is still valid
             if *session_id_clone.lock().unwrap() != current_session {
                 break;
             }
 
-            // Check if we are paused
+            // Sync: Audio samples are already in decoder.audio_buffer
+            // We need to push them to the producer
+            if !decoder.audio_buffer.is_empty() {
+                if let Ok(mut guard) = audio_producer_clone.lock() {
+                    if let Some(ref mut producer) = *guard {
+                        let pushed = producer.push_slice(&decoder.audio_buffer);
+                        decoder.audio_buffer.drain(..pushed);
+                    }
+                }
+            }
+
             while !*playing_clone.lock().unwrap() {
                 if *session_id_clone.lock().unwrap() != current_session {
                     return;
@@ -97,7 +110,6 @@ async fn open_video(
 
             let (frame_data, w, h, stride, current_time) = frame_info;
             
-            // Emit progress to frontend
             let _ = window.emit("playback-update", PlaybackPayload {
                 current_time,
                 duration,
@@ -107,7 +119,7 @@ async fn open_video(
             if let Some(r) = guard.as_mut() {
                 let _ = r.render_frame(&frame_data, w, h, stride);
             }
-            // TODO: Use actual FPS from decoder
+            // AV Sync TODO: Use audio clock instead of fixed sleep
             std::thread::sleep(std::time::Duration::from_millis(30)); 
         }
     });
@@ -126,6 +138,12 @@ fn toggle_playback(state: State<'_, PreviewState>) -> bool {
 fn set_quality(state: State<'_, PreviewState>, mode: QualityMode) {
     let mut quality_guard = state.quality_mode.lock().unwrap();
     *quality_guard = mode;
+}
+
+#[tauri::command]
+fn set_volume(state: State<'_, PreviewState>, volume: f32) {
+    let mut v = state.volume.lock().unwrap();
+    *v = volume.clamp(0.0, 1.0);
 }
 
 #[tauri::command]
@@ -168,8 +186,37 @@ async fn init_renderer(window: Window, state: State<'_, PreviewState>) -> Result
     Ok(())
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+// #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Audio Setup
+    let host = cpal::default_host();
+    let device = host.default_output_device().expect("no output device available");
+    let config = device.default_output_config().expect("no default output config");
+    
+    // Create RingBuffer for 1 second of audio (48000 samples * 2 channels)
+    let rb = HeapRb::<f32>::new(96000);
+    let (mut producer, mut consumer) = rb.split();
+    
+    let volume_state = Arc::new(Mutex::new(1.0f32));
+    let volume_clone = volume_state.clone();
+
+    let stream = device.build_output_stream(
+        &config.into(),
+        move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+            let vol = *volume_clone.lock().unwrap();
+            for sample in data.iter_mut() {
+                *sample = consumer.pop().unwrap_or(0.0) * vol;
+            }
+        },
+        |err| eprintln!("audio stream error: {}", err),
+        None
+    ).expect("failed to build audio stream");
+
+    stream.play().expect("failed to start audio stream");
+
+    // Prevent stream from being dropped
+    Box::leak(Box::new(stream));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
@@ -179,10 +226,13 @@ pub fn run() {
             quality_mode: Arc::new(Mutex::new(QualityMode::Native)),
             is_playing: Arc::new(Mutex::new(false)),
             session_id: Arc::new(Mutex::new(0)),
+            audio_producer: Arc::new(Mutex::new(Some(producer))),
+            volume: volume_state,
         })
         .invoke_handler(tauri::generate_handler![
             open_video,
             set_quality,
+            set_volume,
             toggle_playback,
             update_viewport,
             init_renderer,

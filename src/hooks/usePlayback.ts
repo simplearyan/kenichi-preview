@@ -12,10 +12,25 @@ export const usePlayback = () => {
         setCurrentIndex,
         setIsPlaying,
         setQualityMode,
-        setAspectMode
+        setAspectMode,
+        volume,
+        setVolume,
+        isMuted,
+        setIsMuted
     } = useStore();
 
     const currentFile = currentIndex !== null ? playlist[currentIndex] : null;
+
+    const handleSetVolume = async (val: number) => {
+        setVolume(val);
+        await invoke("set_volume", { volume: isMuted ? 0 : val });
+    };
+
+    const handleToggleMute = async () => {
+        const nextMuted = !isMuted;
+        setIsMuted(nextMuted);
+        await invoke("set_volume", { volume: nextMuted ? 0 : volume });
+    };
 
     const handleOpenFile = async (path: string) => {
         try {
@@ -91,7 +106,11 @@ export const usePlayback = () => {
         handleToggleQuality,
         handleTogglePlayback,
         handleToggleAspect,
+        handleSetVolume,
+        handleToggleMute,
         selectMedia,
-        currentFile
+        currentFile,
+        volume,
+        isMuted
     };
 };

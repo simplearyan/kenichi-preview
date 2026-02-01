@@ -4,6 +4,7 @@ import { usePlayback } from "../hooks/usePlayback";
 import { formatTime } from "../utils/format";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { VolumeControl } from "./VolumeControl";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -72,6 +73,9 @@ export const ControlBar = () => {
                         <Play className="w-5 h-5 fill-current ml-0.5" />
                     )}
                 </button>
+
+                {/* Volume Control */}
+                <VolumeControl />
 
                 <button className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-500 transition-all">
                     <FastForward className="w-5 h-5" />

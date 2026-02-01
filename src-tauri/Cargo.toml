@@ -32,4 +32,6 @@ raw-window-handle = "0.6"
 bytemuck = { version = "1", features = ["derive"] }
 log = "0.4"
 env_logger = "0.11"
+cpal = "0.15"
+ringbuf = "0.3"
 

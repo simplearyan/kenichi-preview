@@ -9,6 +9,8 @@ interface PlaybackState {
     playlist: string[];
     currentIndex: number | null;
     isRendererReady: boolean;
+    volume: number;
+    isMuted: boolean;
 
     // Actions
     setIsPlaying: (playing: boolean) => void;
@@ -19,6 +21,8 @@ interface PlaybackState {
     setPlaylist: (playlist: string[] | ((prev: string[]) => string[])) => void;
     setCurrentIndex: (index: number | null) => void;
     setIsRendererReady: (ready: boolean) => void;
+    setVolume: (volume: number) => void;
+    setIsMuted: (muted: boolean) => void;
 }
 
 export const useStore = create<PlaybackState>((set) => ({
@@ -30,6 +34,8 @@ export const useStore = create<PlaybackState>((set) => ({
     playlist: [],
     currentIndex: null,
     isRendererReady: false,
+    volume: 1.0,
+    isMuted: false,
 
     setIsPlaying: (isPlaying) => set({ isPlaying }),
     setCurrentTime: (currentTime) => set({ currentTime }),
@@ -41,4 +47,6 @@ export const useStore = create<PlaybackState>((set) => ({
     })),
     setCurrentIndex: (currentIndex) => set({ currentIndex }),
     setIsRendererReady: (isRendererReady) => set({ isRendererReady }),
+    setVolume: (volume) => set({ volume }),
+    setIsMuted: (isMuted) => set({ isMuted }),
 }));
