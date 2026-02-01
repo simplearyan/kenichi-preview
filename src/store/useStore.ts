@@ -7,6 +7,13 @@ export interface MediaItem {
     thumbnail?: string;
     duration?: number;
     processing?: boolean;
+    processed?: boolean;  // To prevent infinite re-processing
+    size?: number;        // bytes
+    width?: number;
+    height?: number;
+    sampleRate?: number;  // Hz
+    bitrate?: number;     // bps
+    container?: string;   // e.g. 'mp4', 'mov'
 }
 
 export type PlaybackStatus = "Playing" | "Paused" | "Buffering" | "Finished" | "Error";

@@ -17,7 +17,7 @@ export function useFileProcessing() {
     };
 
     const processItem = useCallback(async (item: MediaItem, index: number) => {
-        if (item.thumbnail || processingQueue.current.has(item.path)) return;
+        if (item.processed || item.processing || processingQueue.current.has(item.path)) return;
 
         processingQueue.current.add(item.path);
         updateMediaItem(index, { processing: true });
@@ -44,7 +44,8 @@ export function useFileProcessing() {
                 );
                 updateMediaItem(index, {
                     thumbnail: `data:image/jpeg;base64,${base64String}`,
-                    processing: false
+                    processing: false,
+                    processed: true
                 });
                 return;
             }
@@ -52,33 +53,55 @@ export function useFileProcessing() {
             // 1. First, Probing Metadata (Fast)
             const ffprobe = Command.sidecar('bin/ffprobe', [
                 '-v', 'error',
-                '-show_entries', 'format=duration:stream=codec_type',
-                '-of', 'default=noprint_wrappers=1:nokey=1',
+                '-show_entries', 'format=duration,size,bit_rate,format_name:stream=codec_type,width,height,sample_rate',
+                '-print_format', 'json',
                 item.path
             ]);
             const probeResult = await ffprobe.execute();
-            console.log(`[useFileProcessing] Probe Result for ${item.name}:`, probeResult);
+            // console.log(`[useFileProcessing] Probe Result for ${item.name}:`, probeResult);
 
             let duration = 0;
+            let size = 0;
+            let bitrate = 0;
+            let container = '';
+            let width = 0;
+            let height = 0;
+            let sampleRate = 0;
             let type: 'Video' | 'Audio' | 'Image' = 'Video';
 
             if (probeResult.code === 0) {
-                const lines = probeResult.stdout.trim().split('\n');
-                duration = parseFloat(lines[0]) || 0;
+                try {
+                    const data = JSON.parse(probeResult.stdout);
+                    const format = data.format || {};
+                    const videoStream = data.streams?.find((s: any) => s.codec_type === 'video');
+                    const audioStream = data.streams?.find((s: any) => s.codec_type === 'audio');
 
-                const streams = lines.slice(1).map(l => l.trim().toLowerCase());
-                const hasVideo = streams.includes('video');
-                const hasAudio = streams.includes('audio');
+                    duration = parseFloat(format.duration || '0');
+                    size = parseInt(format.size || '0', 10);
+                    bitrate = parseInt(format.bit_rate || '0', 10);
+                    container = format.format_name;
 
-                const ext = item.path.split('.').pop()?.toLowerCase();
-                const isImageExt = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif', 'bmp'].includes(ext || '');
+                    if (videoStream) {
+                        width = videoStream.width;
+                        height = videoStream.height;
+                    }
 
-                if (isImageExt) {
-                    type = 'Image';
-                } else if (!hasVideo && hasAudio) {
-                    type = 'Audio';
-                } else {
-                    type = 'Video';
+                    if (audioStream) {
+                        sampleRate = parseInt(audioStream.sample_rate || '0', 10);
+                    }
+
+                    const ext = item.path.split('.').pop()?.toLowerCase();
+                    const isImageExt = ['jpg', 'jpeg', 'png', 'webp', 'tiff', 'tif', 'bmp'].includes(ext || '');
+
+                    if (isImageExt) {
+                        type = 'Image';
+                    } else if (!videoStream && audioStream) {
+                        type = 'Audio';
+                    } else {
+                        type = 'Video';
+                    }
+                } catch (e) {
+                    console.error("Failed to parse ffprobe json:", e);
                 }
             }
 
@@ -111,7 +134,14 @@ export function useFileProcessing() {
                         thumbnail: `data:image/jpeg;base64,${base64String}`,
                         duration,
                         type,
-                        processing: false
+                        processing: false,
+                        processed: true,
+                        size,
+                        width,
+                        height,
+                        sampleRate,
+                        bitrate,
+                        container
                     });
                     return;
                 }
@@ -121,11 +151,18 @@ export function useFileProcessing() {
             updateMediaItem(index, {
                 duration,
                 type,
-                processing: false
+                processing: false,
+                processed: true,
+                size,
+                width,
+                height,
+                sampleRate,
+                bitrate,
+                container
             });
         } catch (e) {
             console.error('Processing error:', e);
-            updateMediaItem(index, { processing: false });
+            updateMediaItem(index, { processing: false, processed: true });
         } finally {
             processingQueue.current.delete(item.path);
         }
@@ -133,7 +170,7 @@ export function useFileProcessing() {
 
     useEffect(() => {
         playlist.forEach((item, index) => {
-            if (!item.thumbnail && !item.processing) {
+            if (!item.processed && !item.processing) {
                 processItem(item, index);
             }
         });
