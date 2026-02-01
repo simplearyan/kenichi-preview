@@ -195,17 +195,32 @@ pub fn run() {
     
     // Create RingBuffer for 1 second of audio (48000 samples * 2 channels)
     let rb = HeapRb::<f32>::new(96000);
-    let (mut producer, mut consumer) = rb.split();
+    let (producer, mut consumer) = rb.split();
     
     let volume_state = Arc::new(Mutex::new(1.0f32));
     let volume_clone = volume_state.clone();
 
+    let mut underrun_counter = 0;
+    
     let stream = device.build_output_stream(
         &config.into(),
         move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
             let vol = *volume_clone.lock().unwrap();
+            let mut underrun_occurred = false;
             for sample in data.iter_mut() {
-                *sample = consumer.pop().unwrap_or(0.0) * vol;
+                match consumer.pop() {
+                    Some(s) => *sample = s * vol,
+                    None => {
+                        *sample = 0.0;
+                        underrun_occurred = true;
+                    }
+                }
+            }
+            if underrun_occurred {
+                underrun_counter += 1;
+                if underrun_counter % 100 == 0 {
+                    eprintln!("[Audio] Buffer Underrun detected (total: {})", underrun_counter);
+                }
             }
         },
         |err| eprintln!("audio stream error: {}", err),

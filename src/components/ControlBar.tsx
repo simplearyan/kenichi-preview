@@ -91,7 +91,7 @@ export const ControlBar = () => {
                             ? "bg-white/5 border-white/10 hover:border-white/20 text-white"
                             : "bg-brand-yellow text-pro-black border-brand-yellow shadow-lg shadow-brand-yellow/20"
                     )}
-                    title={`Quality: ${qualityMode}`}
+                    title={`Video Quality: ${qualityMode} (Audio: Standard)`}
                 >
                     {qualityMode === "Native" && <ShieldCheck className="w-4 h-4" />}
                     {qualityMode === "Fast" && <Zap className="w-4 h-4" />}

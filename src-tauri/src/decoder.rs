@@ -67,7 +67,7 @@ impl Decoder {
         let duration_secs = input_ctx.duration() as f64 / 1_000_000.0;
         let time_base = video_stream.time_base();
 
-        // Audio Setup
+        // Audio Setup based on QualityMode
         let audio_stream = input_ctx.streams().best(Type::Audio);
         let mut audio_decoder = None;
         let mut audio_stream_index = None;
@@ -80,7 +80,22 @@ impl Decoder {
             audio_stream_index = Some(s.index());
             audio_time_base = s.time_base();
 
-            // Setup Resampler: Convert to Float32, 48kHz, Stereo
+            // Always use 48kHz Stereo for hardware compatibility (cpal default)
+            // We only scale Video resolution for performance.
+            let target_rate = 48000;
+            let target_layout = ffmpeg::channel_layout::ChannelLayout::STEREO;
+
+            eprintln!(
+                "[Decoder] Audio format set to: {}Hz, {:?}",
+                target_rate,
+                if target_layout == ffmpeg::channel_layout::ChannelLayout::MONO {
+                    "Mono"
+                } else {
+                    "Stereo"
+                }
+            );
+
+            // Setup Resampler: Convert to Float32 with fixed 48k/Stereo
             resampler = Some(ffmpeg::software::resampling::context::Context::get(
                 ad.format(),
                 ad.channel_layout(),
@@ -88,11 +103,10 @@ impl Decoder {
                 ffmpeg::util::format::sample::Sample::F32(
                     ffmpeg::util::format::sample::Type::Packed,
                 ),
-                ffmpeg::channel_layout::ChannelLayout::STEREO,
-                48000,
+                target_layout,
+                target_rate,
             )?);
             audio_decoder = Some(ad);
-            eprintln!("[Decoder] Audio stream found and resampler initialized.");
         }
 
         Ok(Self {
