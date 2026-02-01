@@ -18,25 +18,39 @@ This document outlines the planned feature development for the Kenichi Preview a
 - [x] **Dynamic Viewports**: Video now clips perfectly to the designated preview area.
 - [x] **Color Accuracy**: sRGB texture format used for vibrant, accurate colors.
 
-## Phase 3: Enhanced Media Support
+## Phase 3: Media Polish & Controls (Current Focus)
+- [ ] **Playhead & Duration Display**:
+    - Implement real-time playback time and total duration display in the footer.
+    - Synchronize state between Rust backend and React frontend.
+- [ ] **Aspect Ratio Control**:
+    - Support for multiple aspect ratios (16:9, 4:3, 21:9, Original).
+    - Implement letterboxing/pillarboxing logic in the WGPU renderer.
+    - Support for mixed video and image aspect ratios.
+- [ ] **Quality Selection Dropdown**:
+    - Add a sleek dropdown UI for switching between "Native High" and "Fast Preview" modes.
+    - Persist quality settings across sessions.
+
+## Phase 4: Audio & Multi-Media Support
 - [ ] **Audio Support**:
     - Implement audio decoding using FFmpeg.
     - Synchronize audio with video playback.
-    - Implement audio decoding using FFmpeg.
-    - Synchronize audio with video playback.
     - Add volume controls to the UI.
+- [ ] **Media Card Thumbnails**:
+    - Generate background thumbnails for media gallery using sidecar FFmpeg.
+    - Implement caching into a local `.kenichi` cache folder.
 - [ ] **Image Support**:
     - Add support for opening and displaying static images (JPG, PNG, WEBP).
     - Implement zoom and pan controls for images.
 
-## Phase 3: Advanced Features
-- [ ] **Proxy Generation**:
-    - Add option to generate low-resolution proxy files for smooth playback of 4K/8K content.
-    - Implement background transcoding task.
-- [ ] **Performance Settings**:
-    - "Low Quality" preview mode (already partially implemented with resolution scaling).
-    - Configurable cache settings.
+## Phase 5: Advanced Editing & Export
+- [ ] **Text & Subtitle Overlays**:
+    - Add ability to overlay text and subtitles on the preview.
+    - Support for font selection and basic styling.
+- [ ] **Production Export**:
+    - Use sidecar FFmpeg for high-fidelity rendering and export.
+    - Burn text/subtitle overlays into the exported video using FFmpeg filtergraphs.
+    - Implement progress tracking for export tasks in the Sidebar.
 
-## Phase 4: Polish & Production
+## Phase 6: Polish & Production
 - [ ] **Settings Integration**: Save user preferences (volume, quality, proxy settings).
 - [ ] **Distribution**: Sign and notarize the application for Windows and macOS.

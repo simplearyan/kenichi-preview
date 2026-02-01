@@ -55,3 +55,26 @@
 **Resolution**:
 - Updated the video texture format to `Rgba8UnormSrgb` to enable automatic hardware-level conversion from sRGB to Linear space on texture sampling.
 - This ensures the shader works with mathematically correct intensities, and the surface correctly handles the final sRGB conversion for display.
+## Challenge 7: Persistence on Pause & Resize
+**Issue**: The video preview would disappear (flicker to black) when the window was resized or when the video was paused.
+
+**Resolution**:
+- Implemented `Renderer::repaint()`. Unlike `render_frame`, `repaint` doesn't require new pixel data; it simply redraws the last successfully uploaded texture.
+- Hooked `repaint` into the Tauri `Resized` window event and the React `updateViewport` lifecycle.
+
+## Challenge 8: WGPU Instance/Surface Synchronization
+**Issue**: Switching between multiple videos caused significant flickering or "context lost" errors because a new `Renderer` was being created for every file.
+
+**Resolution**:
+- Modified `lib.rs` to persist a single `Renderer` instance in the application state.
+- The WGPU surface and logical device now live for the duration of the app session, with only the video texture being swapped out. This ensures nearly-instantaneous media transitions.
+
+## Challenge 9: Rust Thread Safety (Atomic Command Invocation)
+**Issue**: Fixed a critical `future cannot be sent between threads safely` compilation error in `lib.rs`.
+
+**Investigation**:
+- The generic `MutexGuard` from `std::sync::Mutex` is not `Send`. We were holding this guard across an `.await` point (WGPU initialization).
+
+**Resolution**:
+- Explicitly scoped the Mutex locking using block expressions `{}` to ensure the guard is dropped before the `.await` call.
+- This satisfies the Rust compiler's safety requirements for multi-threaded async futures in Tauri commands.
