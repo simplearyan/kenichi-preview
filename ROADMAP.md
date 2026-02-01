@@ -22,10 +22,10 @@ This document outlines the planned feature development for the Kenichi Preview a
 - [x] **Playhead & Duration Display**:
     - Implement real-time playback time and total duration display in the footer.
     - Synchronize state between Rust backend and React frontend.
-- [ ] **Aspect Ratio Control**:
-    - Support for multiple aspect ratios (16:9, 4:3, 21:9, Original).
-    - Implement letterboxing/pillarboxing logic in the WGPU renderer.
-    - Support for mixed video and image aspect ratios.
+- [x] **Aspect Ratio Control**:
+    - [x] Implement native letterboxing/pillarboxing in WGPU.
+    - [x] Support 16:9, 4:3, 21:9, and Original Fit modes.
+    - [x] Added dynamic scaling UI toggle.
 - [ ] **Quality Selection Dropdown**:
     - Add a sleek dropdown UI for switching between "Native High" and "Fast Preview" modes.
     - Persist quality settings across sessions.

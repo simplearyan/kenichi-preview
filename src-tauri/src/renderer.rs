@@ -15,7 +15,18 @@ pub struct Renderer {
     pub video_bind_group: Option<BindGroup>,
     // Buffer to handle stride alignment padding
     pub padding_buffer: Vec<u8>,
-    pub viewport: Option<Rect>,
+    pub container_viewport: Option<Rect>,
+    pub current_aspect_mode: AspectMode,
+    pub last_video_size: Option<(u32, u32)>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub enum AspectMode {
+    Fit,     // Letterbox/Pillarbox based on video ratio
+    Stretch, // Fill the container (original behavior)
+    Cinema,  // 21:9
+    Classic, // 4:3
+    Wide,    // 16:9
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -170,7 +181,9 @@ impl Renderer {
             video_texture_view: None,
             video_bind_group: None,
             padding_buffer: Vec::new(),
-            viewport: None,
+            container_viewport: None,
+            current_aspect_mode: AspectMode::Fit,
+            last_video_size: None,
         })
     }
 
@@ -184,10 +197,59 @@ impl Renderer {
     }
 
     pub fn set_viewport(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        self.viewport = Some(Rect { x, y, width, height });
+        self.container_viewport = Some(Rect { x, y, width, height });
+    }
+
+    pub fn set_aspect_mode(&mut self, mode: AspectMode) {
+        self.current_aspect_mode = mode;
+    }
+
+    fn calculate_actual_viewport(&self) -> Option<Rect> {
+        let container = self.container_viewport?;
+        let (v_w, v_h) = self.last_video_size?;
+
+        if v_w == 0 || v_h == 0 {
+            return Some(container);
+        }
+
+        match self.current_aspect_mode {
+            AspectMode::Stretch => Some(container),
+            _ => {
+                let target_ratio = match self.current_aspect_mode {
+                    AspectMode::Fit => (v_w as f32) / (v_h as f32),
+                    AspectMode::Cinema => 21.0 / 9.0,
+                    AspectMode::Classic => 4.0 / 3.0,
+                    AspectMode::Wide => 16.0 / 9.0,
+                    AspectMode::Stretch => unreachable!(),
+                };
+
+                let container_ratio = container.width / container.height;
+
+                let (final_w, final_h) = if container_ratio > target_ratio {
+                    // Container is wider than video ratio -> Pillarbox
+                    let h = container.height;
+                    let w = h * target_ratio;
+                    (w, h)
+                } else {
+                    // Container is taller than video ratio -> Letterbox
+                    let w = container.width;
+                    let h = w / target_ratio;
+                    (h, w); // WAIT, I swapped h and w in my head
+                    (w, h)
+                };
+
+                Some(Rect {
+                    x: container.x + (container.width - final_w) / 2.0,
+                    y: container.y + (container.height - final_h) / 2.0,
+                    width: final_w,
+                    height: final_h,
+                })
+            }
+        }
     }
 
     pub fn render_frame(&mut self, rgba_data: &[u8], width: u32, height: u32, stride: u32) -> anyhow::Result<()> {
+        self.last_video_size = Some((width, height));
         if width == 0 || height == 0 || stride == 0 {
             return Ok(());
         }
@@ -333,8 +395,7 @@ impl Renderer {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
-
-            if let Some(rect) = &self.viewport {
+            if let Some(rect) = self.calculate_actual_viewport() {
                 render_pass.set_viewport(rect.x, rect.y, rect.width, rect.height, 0.0, 1.0);
             }
 
@@ -386,8 +447,7 @@ impl Renderer {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
-
-            if let Some(rect) = &self.viewport {
+            if let Some(rect) = self.calculate_actual_viewport() {
                 render_pass.set_viewport(rect.x, rect.y, rect.width, rect.height, 0.0, 1.0);
             }
 

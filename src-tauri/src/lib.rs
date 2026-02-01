@@ -137,6 +137,15 @@ fn update_viewport(
 }
 
 #[tauri::command]
+fn set_aspect_ratio(state: State<'_, PreviewState>, mode: renderer::AspectMode) {
+    let mut renderer_guard = state.renderer.lock().unwrap();
+    if let Some(r) = renderer_guard.as_mut() {
+        r.set_aspect_mode(mode);
+        let _ = r.repaint();
+    }
+}
+
+#[tauri::command]
 async fn init_renderer(window: Window, state: State<'_, PreviewState>) -> Result<(), String> {
     let needs_init = state.renderer.lock().unwrap().is_none();
     if needs_init {
@@ -162,7 +171,14 @@ pub fn run() {
             is_playing: Arc::new(Mutex::new(false)),
             session_id: Arc::new(Mutex::new(0)),
         })
-        .invoke_handler(tauri::generate_handler![open_video, toggle_quality, toggle_playback, update_viewport, init_renderer])
+        .invoke_handler(tauri::generate_handler![
+            open_video,
+            toggle_quality,
+            toggle_playback,
+            update_viewport,
+            init_renderer,
+            set_aspect_ratio
+        ])
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::Resized(size) => {

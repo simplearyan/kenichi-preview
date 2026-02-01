@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Minus, Square, Play, Pause, ShieldCheck, Zap, Plus, Film, Image as ImageIcon, FastForward, Subtitles, ListVideo, X } from "lucide-react";
+import { Minus, Square, Play, Pause, ShieldCheck, Zap, Plus, Film, Image as ImageIcon, FastForward, Subtitles, ListVideo, X, Maximize2 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -18,6 +18,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [aspectMode, setAspectMode] = useState<"Fit" | "Stretch" | "Cinema" | "Classic" | "Wide">("Fit");
   const appWindow = getCurrentWindow();
   const mainRef = useRef<HTMLElement>(null);
 
@@ -153,6 +154,14 @@ function App() {
     } catch (err) {
       console.error("Failed to toggle playback:", err);
     }
+  };
+
+  const handleToggleAspect = async () => {
+    const modes: ("Fit" | "Stretch" | "Cinema" | "Classic" | "Wide")[] = ["Fit", "Stretch", "Cinema", "Classic", "Wide"];
+    const nextIndex = (modes.indexOf(aspectMode) + 1) % modes.length;
+    const nextMode = modes[nextIndex];
+    setAspectMode(nextMode);
+    await invoke("set_aspect_ratio", { mode: nextMode });
   };
 
   return (
@@ -316,6 +325,23 @@ function App() {
         </div>
 
         <div className="flex items-center gap-4 no-drag">
+          <button
+            onClick={handleToggleAspect}
+            className={cn(
+              "p-2.5 rounded-xl transition-all relative group",
+              aspectMode === "Fit" ? "text-zinc-500 hover:bg-white/5" : "text-brand-yellow bg-brand-yellow/10 border border-brand-yellow/20"
+            )}
+            title={`Aspect Ratio: ${aspectMode}`}
+          >
+            <Maximize2 className="w-5 h-5" />
+            {aspectMode !== "Fit" && (
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-yellow opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-yellow"></span>
+              </span>
+            )}
+          </button>
+
           <button className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-500 transition-all">
             <Subtitles className="w-5 h-5" />
           </button>
@@ -352,8 +378,8 @@ function App() {
             </span>
           </button>
         </div>
-      </footer>
-    </div>
+      </footer >
+    </div >
   );
 }
 
