@@ -1,4 +1,4 @@
-use crate::QualityMode;
+use super::state::QualityMode;
 use ffmpeg_next as ffmpeg;
 use ffmpeg_next::format::{input, Pixel};
 use ffmpeg_next::media::Type;
@@ -19,8 +19,7 @@ pub struct Decoder {
     // Metadata
     duration_secs: f64,
     time_base: ffmpeg::util::rational::Rational,
-    audio_time_base: ffmpeg::util::rational::Rational,
-    // Caching frames to avoid re-allocation
+    _audio_time_base: ffmpeg::util::rational::Rational,
     raw_frame: Video,
     scaled_frame: Video,
     audio_frame: Audio,
@@ -119,7 +118,7 @@ impl Decoder {
             resampler,
             duration_secs,
             time_base,
-            audio_time_base,
+            _audio_time_base: audio_time_base,
             raw_frame: Video::empty(),
             scaled_frame: Video::empty(),
             audio_frame: Audio::empty(),

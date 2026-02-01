@@ -20,22 +20,7 @@ pub struct Renderer {
     pub last_video_size: Option<(u32, u32)>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-pub enum AspectMode {
-    Fit,     // Letterbox/Pillarbox based on video ratio
-    Stretch, // Fill the container (original behavior)
-    Cinema,  // 21:9
-    Classic, // 4:3
-    Wide,    // 16:9
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Rect {
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
+use super::state::{AspectMode, Rect};
 
 impl Renderer {
     pub async fn new(window: Arc<tauri::Window>) -> anyhow::Result<Self> {
