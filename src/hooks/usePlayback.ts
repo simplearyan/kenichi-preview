@@ -47,27 +47,32 @@ export const usePlayback = () => {
             filters: [
                 {
                     name: "Media",
-                    extensions: ["mp4", "mkv", "avi", "mov", "webm", "jpg", "png", "webp"],
+                    extensions: ["mp4", "mkv", "avi", "mov", "webm", "mp3", "wav", "flac", "m4a"],
                 },
             ],
         });
 
         if (selected) {
             const paths = Array.isArray(selected) ? selected : [selected];
+            const newItems = paths.map(p => ({
+                path: p,
+                name: p.split(/[\\/]/).pop() || p
+            }));
+
             setPlaylist(prev => {
-                const newPlaylist = [...prev, ...paths];
+                const updatedPlaylist = [...prev, ...newItems];
                 if (currentIndex === null) {
                     setCurrentIndex(prev.length);
-                    handleOpenFile(paths[0]);
+                    handleOpenFile(newItems[0].path);
                 }
-                return newPlaylist;
+                return updatedPlaylist;
             });
         }
     };
 
     const selectMedia = (index: number) => {
         setCurrentIndex(index);
-        handleOpenFile(playlist[index]);
+        handleOpenFile(playlist[index].path);
     };
 
     const handleToggleQuality = async () => {
@@ -78,7 +83,7 @@ export const usePlayback = () => {
         await invoke("set_quality", { mode: nextMode });
 
         if (currentFile) {
-            handleOpenFile(currentFile);
+            handleOpenFile(currentFile.path);
         }
     };
 

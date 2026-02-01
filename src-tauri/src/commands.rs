@@ -1,4 +1,4 @@
-use tauri::{State, Window, Emitter};
+use tauri::{State, Window, Emitter, Manager};
 use crate::engine::{Engine, QualityMode, AspectMode};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -149,4 +149,12 @@ pub async fn init_renderer(window: Window, engine: State<'_, Engine>) -> Result<
         }
     }
     Ok(())
+}
+#[tauri::command]
+pub fn get_app_cache_dir(app: tauri::AppHandle) -> Result<String, String> {
+    let path = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e: tauri::Error| e.to_string())?;
+    Ok(path.to_string_lossy().to_string())
 }

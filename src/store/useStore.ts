@@ -1,12 +1,20 @@
 import { create } from "zustand";
 
+export interface MediaItem {
+    path: string;
+    name: string;
+    thumbnail?: string;
+    duration?: number;
+    processing?: boolean;
+}
+
 interface PlaybackState {
     isPlaying: boolean;
     currentTime: number;
     duration: number;
     qualityMode: "Native" | "Fast" | "Proxy";
     aspectMode: "Fit" | "Stretch" | "Cinema" | "Classic" | "Wide";
-    playlist: string[];
+    playlist: MediaItem[];
     currentIndex: number | null;
     isRendererReady: boolean;
     volume: number;
@@ -18,7 +26,8 @@ interface PlaybackState {
     setDuration: (duration: number) => void;
     setQualityMode: (mode: "Native" | "Fast" | "Proxy") => void;
     setAspectMode: (mode: "Fit" | "Stretch" | "Cinema" | "Classic" | "Wide") => void;
-    setPlaylist: (playlist: string[] | ((prev: string[]) => string[])) => void;
+    setPlaylist: (playlist: MediaItem[] | ((prev: MediaItem[]) => MediaItem[])) => void;
+    updateMediaItem: (index: number, updates: Partial<MediaItem>) => void;
     setCurrentIndex: (index: number | null) => void;
     setIsRendererReady: (ready: boolean) => void;
     setVolume: (volume: number) => void;
@@ -45,6 +54,13 @@ export const useStore = create<PlaybackState>((set) => ({
     setPlaylist: (playlist) => set((state) => ({
         playlist: typeof playlist === "function" ? playlist(state.playlist) : playlist
     })),
+    updateMediaItem: (index, updates) => set((state) => {
+        const newPlaylist = [...state.playlist];
+        if (newPlaylist[index]) {
+            newPlaylist[index] = { ...newPlaylist[index], ...updates };
+        }
+        return { playlist: newPlaylist };
+    }),
     setCurrentIndex: (currentIndex) => set({ currentIndex }),
     setIsRendererReady: (isRendererReady) => set({ isRendererReady }),
     setVolume: (volume) => set({ volume }),

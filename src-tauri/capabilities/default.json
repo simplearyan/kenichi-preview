@@ -14,6 +14,41 @@
     "core:window:allow-minimize",
     "core:window:allow-close",
     "core:window:allow-set-size",
-    "core:window:allow-set-position"
+    "core:window:allow-set-position",
+    "shell:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "bin/ffmpeg",
+          "args": true,
+          "sidecar": true
+        },
+        {
+          "name": "bin/ffprobe",
+          "args": true,
+          "sidecar": true
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "bin/ffmpeg",
+          "args": true,
+          "sidecar": true
+        },
+        {
+          "name": "bin/ffprobe",
+          "args": true,
+          "sidecar": true
+        }
+      ]
+    },
+    "fs:allow-appcache-read",
+    "fs:scope-appcache-recursive",
+    "fs:allow-applocaldata-read",
+    "fs:scope-applocaldata-recursive"
   ]
 }

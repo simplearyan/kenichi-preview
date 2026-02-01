@@ -5,6 +5,7 @@ import { Sidebar } from "./components/Sidebar";
 import { PreviewArea } from "./components/PreviewArea";
 import { ControlBar } from "./components/ControlBar";
 import { useTauriEvents } from "./hooks/useTauriEvents";
+import { useFileProcessing } from "./hooks/useFileProcessing";
 import { useStore } from "./store/useStore";
 
 function App() {
@@ -12,6 +13,7 @@ function App() {
 
   // Initialize Global Listeners
   useTauriEvents();
+  useFileProcessing();
 
   // Initial Renderer Setup
   useEffect(() => {

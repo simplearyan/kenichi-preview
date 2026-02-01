@@ -37,3 +37,9 @@ src-tauri/target
 
 # Tauri errors
 src-tauri/errors.txt
+
+# Heavy Binaries
+/src-tauri/bin/*
+# These are large and should not be committed
+ffmpeg.exe
+ffprobe.exe

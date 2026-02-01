@@ -34,4 +34,7 @@ log = "0.4"
 env_logger = "0.11"
 cpal = "0.15"
 ringbuf = "0.3"
+tauri-plugin-shell = "2"
+sha2 = "0.10"
+hex = "0.4"
 

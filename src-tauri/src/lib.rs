@@ -14,6 +14,7 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -25,7 +26,8 @@ pub fn run() {
             commands::toggle_playback,
             commands::update_viewport,
             commands::init_renderer,
-            commands::set_aspect_ratio
+            commands::set_aspect_ratio,
+            commands::get_app_cache_dir
         ])
         .on_window_event(|window, event| {
             match event {
