@@ -30,7 +30,7 @@ export const ControlBar = () => {
                 <div className="flex flex-col">
                     <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Active Preview</span>
                     <div className="text-sm font-bold text-white truncate max-w-[200px]">
-                        {currentFile ? currentFile.split(/[\\/]/).pop() : "Idle"}
+                        {currentFile ? currentFile.name : "Idle"}
                     </div>
                 </div>
                 <div className="flex flex-col ml-10">

@@ -191,46 +191,53 @@ impl Renderer {
 
     fn calculate_actual_viewport(&self) -> Option<Rect> {
         let container = self.container_viewport?;
-        let (v_w, v_h) = self.last_video_size?;
+        let surface_w = self.config.width as f32;
+        let surface_h = self.config.height as f32;
 
-        if v_w == 0 || v_h == 0 {
-            return Some(container);
-        }
-
-        match self.current_aspect_mode {
-            AspectMode::Stretch => Some(container),
-            _ => {
+        let mut final_rect = if let Some((v_w, v_h)) = self.last_video_size {
+            if v_w == 0 || v_h == 0 {
+                container
+            } else {
                 let target_ratio = match self.current_aspect_mode {
                     AspectMode::Fit => (v_w as f32) / (v_h as f32),
                     AspectMode::Cinema => 21.0 / 9.0,
                     AspectMode::Classic => 4.0 / 3.0,
                     AspectMode::Wide => 16.0 / 9.0,
-                    AspectMode::Stretch => unreachable!(),
+                    AspectMode::Stretch => return Some(self.safe_clamp(container, surface_w, surface_h)),
                 };
 
                 let container_ratio = container.width / container.height;
-
                 let (final_w, final_h) = if container_ratio > target_ratio {
-                    // Container is wider than video ratio -> Pillarbox
                     let h = container.height;
                     let w = h * target_ratio;
                     (w, h)
                 } else {
-                    // Container is taller than video ratio -> Letterbox
                     let w = container.width;
                     let h = w / target_ratio;
-                    (h, w); // WAIT, I swapped h and w in my head
                     (w, h)
                 };
 
-                Some(Rect {
+                Rect {
                     x: container.x + (container.width - final_w) / 2.0,
                     y: container.y + (container.height - final_h) / 2.0,
                     width: final_w,
                     height: final_h,
-                })
+                }
             }
-        }
+        } else {
+            container
+        };
+
+        Some(self.safe_clamp(final_rect, surface_w, surface_h))
+    }
+
+    fn safe_clamp(&self, mut rect: Rect, surface_w: f32, surface_h: f32) -> Rect {
+        // Ensure rect is within surface bounds to prevent wgpu validation errors
+        rect.x = rect.x.max(0.0).min(surface_w - 1.0);
+        rect.y = rect.y.max(0.0).min(surface_h - 1.0);
+        rect.width = rect.width.min(surface_w - rect.x).max(1.0);
+        rect.height = rect.height.min(surface_h - rect.y).max(1.0);
+        rect
     }
 
     pub fn render_frame(&mut self, rgba_data: &[u8], width: u32, height: u32, stride: u32) -> anyhow::Result<()> {

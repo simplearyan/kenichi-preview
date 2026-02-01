@@ -25,10 +25,10 @@ export const PreviewArea = () => {
 
         console.log(`[Viewport] Syncing to rect:`, rect);
         await invoke("update_viewport", {
-            x: rect.left * dpr,
-            y: rect.top * dpr,
-            width: rect.width * dpr,
-            height: rect.height * dpr,
+            x: Math.floor(rect.left * dpr),
+            y: Math.floor(rect.top * dpr),
+            width: Math.floor(rect.width * dpr),
+            height: Math.floor(rect.height * dpr),
         });
     };
 

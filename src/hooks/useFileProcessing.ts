@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { invoke, convertFileSrc } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import { Command } from '@tauri-apps/plugin-shell';
-import { exists, mkdir } from '@tauri-apps/plugin-fs';
+import { exists, mkdir, readFile } from '@tauri-apps/plugin-fs';
 import { useStore, MediaItem } from '../store/useStore';
 
 export function useFileProcessing() {
@@ -37,8 +37,13 @@ export function useFileProcessing() {
 
             // Check if already exists in cache
             if (await exists(thumbPath)) {
+                const fileBytes = await readFile(thumbPath);
+                const base64String = btoa(
+                    new Uint8Array(fileBytes)
+                        .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                );
                 updateMediaItem(index, {
-                    thumbnail: convertFileSrc(thumbPath),
+                    thumbnail: `data:image/jpeg;base64,${base64String}`,
                     processing: false
                 });
                 return;
@@ -71,8 +76,14 @@ export function useFileProcessing() {
                     duration = parseFloat(probeResult.stdout);
                 }
 
+                const fileBytes = await readFile(thumbPath);
+                const base64String = btoa(
+                    new Uint8Array(fileBytes)
+                        .reduce((data, byte) => data + String.fromCharCode(byte), '')
+                );
+
                 updateMediaItem(index, {
-                    thumbnail: convertFileSrc(thumbPath),
+                    thumbnail: `data:image/jpeg;base64,${base64String}`,
                     duration,
                     processing: false
                 });

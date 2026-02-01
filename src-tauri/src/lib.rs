@@ -32,10 +32,30 @@ pub fn run() {
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::Resized(size) => {
+                    if size.width > 0 && size.height > 0 {
+                        let engine = window.state::<Engine>();
+                        if let Ok(mut guard) = engine.state.renderer.lock() {
+                            if let Some(r) = guard.as_mut() {
+                                r.resize(*size);
+                                let _ = r.repaint();
+                            }
+                        };
+                    }
+                }
+                tauri::WindowEvent::Moved(_) => {
+                    // Repaint on move to ensure smooth transition
                     let engine = window.state::<Engine>();
                     if let Ok(mut guard) = engine.state.renderer.lock() {
                         if let Some(r) = guard.as_mut() {
-                            r.resize(*size);
+                            let _ = r.repaint();
+                        }
+                    };
+                }
+                tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                    // Repaint on scale factor change
+                    let engine = window.state::<Engine>();
+                    if let Ok(mut guard) = engine.state.renderer.lock() {
+                        if let Some(r) = guard.as_mut() {
                             let _ = r.repaint();
                         }
                     };

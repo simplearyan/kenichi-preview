@@ -11,13 +11,18 @@ export const useTauriEvents = () => {
         const unlistenDragDrop = listen("tauri://drag-drop", async (event: any) => {
             const paths = event.payload.paths;
             if (paths && paths.length > 0) {
+                const newItems = paths.map((p: string) => ({
+                    path: p,
+                    name: p.split(/[\\/]/).pop() || p
+                }));
+
                 setPlaylist(prev => {
-                    const newPlaylist = [...prev, ...paths];
+                    const updatedPlaylist = [...prev, ...newItems];
                     if (currentIndex === null) {
                         setCurrentIndex(prev.length);
-                        handleOpenFile(paths[0]);
+                        handleOpenFile(newItems[0].path);
                     }
-                    return newPlaylist;
+                    return updatedPlaylist;
                 });
             }
         });
