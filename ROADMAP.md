@@ -26,9 +26,10 @@ This document outlines the planned feature development for the Kenichi Preview a
     - [x] Implement native letterboxing/pillarboxing in WGPU.
     - [x] Support 16:9, 4:3, 21:9, and Original Fit modes.
     - [x] Added dynamic scaling UI toggle.
-- [ ] **Quality Selection Dropdown**:
-    - Add a sleek dropdown UI for switching between "Native High" and "Fast Preview" modes.
-    - Persist quality settings across sessions.
+- [x] **Quality Selection Dropdown**:
+    - [x] Implement three-tier quality modes: Native (100%), Fast (50%), Proxy (25%).
+    - [x] Add sleek cycle-button UI in the footer.
+    - [x] Automatic video reload on quality change for instant effect.
 
 ## Phase 4: Audio & Multi-Media Support
 - [ ] **Audio Support**:

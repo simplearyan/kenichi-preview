@@ -1,3 +1,4 @@
+use crate::QualityMode;
 use ffmpeg_next as ffmpeg;
 use ffmpeg_next::format::{input, Pixel};
 use ffmpeg_next::media::Type;
@@ -19,7 +20,7 @@ pub struct Decoder {
 }
 
 impl Decoder {
-    pub fn new(path: &Path, low_quality: bool) -> anyhow::Result<Self> {
+    pub fn new(path: &Path, quality: QualityMode) -> anyhow::Result<Self> {
         eprintln!("[Decoder] Initializing FFmpeg...");
         ffmpeg::init()?;
 
@@ -43,11 +44,16 @@ impl Decoder {
         let width = decoder.width();
         let height = decoder.height();
 
-        let (target_width, target_height) = if low_quality {
-            (width / 4, height / 4)
-        } else {
-            (width, height)
+        let (target_width, target_height) = match quality {
+            QualityMode::Native => (width, height),
+            QualityMode::Fast => (width / 2, height / 2),
+            QualityMode::Proxy => (width / 4, height / 4),
         };
+
+        eprintln!(
+            "[Decoder] Context created. Quality: {:?}, target: {}x{}",
+            quality, target_width, target_height
+        );
 
         let scaler = Context::get(
             decoder.format(),

@@ -14,7 +14,7 @@ function cn(...inputs: ClassValue[]) {
 function App() {
   const [playlist, setPlaylist] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
-  const [isLowQuality, setIsLowQuality] = useState(false);
+  const [qualityMode, setQualityMode] = useState<"Native" | "Fast" | "Proxy">("Native");
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -141,9 +141,18 @@ function App() {
   }, [currentIndex, playlist, isPlaying]);
 
   const handleToggleQuality = async () => {
-    const nextVal = !isLowQuality;
-    setIsLowQuality(nextVal);
-    await invoke("toggle_quality", { lowQuality: nextVal });
+    const modes: ("Native" | "Fast" | "Proxy")[] = ["Native", "Fast", "Proxy"];
+    const nextIndex = (modes.indexOf(qualityMode) + 1) % modes.length;
+    const nextMode = modes[nextIndex];
+    console.log(`[Frontend] Quality Toggle: ${qualityMode} -> ${nextMode}`);
+    setQualityMode(nextMode);
+    await invoke("set_quality", { mode: nextMode });
+
+    // Auto-reload current video to apply new quality
+    if (currentFile) {
+      console.log(`[Frontend] Reloading for quality change: ${currentFile}`);
+      handleOpenFile(currentFile);
+    }
   };
 
   const handleTogglePlayback = async () => {
@@ -367,14 +376,17 @@ function App() {
             onClick={handleToggleQuality}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 no-drag",
-              isLowQuality
-                ? "bg-brand-yellow text-pro-black border-brand-yellow shadow-lg shadow-brand-yellow/20"
-                : "bg-white/5 border-white/10 hover:border-white/20 text-white"
+              qualityMode === "Native"
+                ? "bg-white/5 border-white/10 hover:border-white/20 text-white"
+                : "bg-brand-yellow text-pro-black border-brand-yellow shadow-lg shadow-brand-yellow/20"
             )}
+            title={`Quality: ${qualityMode}`}
           >
-            {isLowQuality ? <Zap className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+            {qualityMode === "Native" && <ShieldCheck className="w-4 h-4" />}
+            {qualityMode === "Fast" && <Zap className="w-4 h-4" />}
+            {qualityMode === "Proxy" && <FastForward className="w-4 h-4" />}
             <span className="text-xs font-bold tracking-tight uppercase">
-              {isLowQuality ? "Performance" : "Native High"}
+              {qualityMode === "Native" ? "High Fidelity" : qualityMode}
             </span>
           </button>
         </div>

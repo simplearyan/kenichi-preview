@@ -9,9 +9,16 @@ use decoder::Decoder;
 
 pub struct PreviewState {
     pub renderer: Arc<Mutex<Option<Renderer>>>,
-    pub is_low_quality: Arc<Mutex<bool>>,
+    pub quality_mode: Arc<Mutex<QualityMode>>,
     pub is_playing: Arc<Mutex<bool>>,
     pub session_id: Arc<Mutex<u64>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+pub enum QualityMode {
+    Native, // 100% resolution
+    Fast,   // 50% resolution
+    Proxy,  // 25% resolution
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -27,7 +34,7 @@ async fn open_video(
     path: String,
 ) -> Result<(), String> {
     let path = PathBuf::from(path);
-    let low_quality = *state.is_low_quality.lock().unwrap();
+    let quality_mode = *state.quality_mode.lock().unwrap();
 
     // 1. Initialize Renderer if not already done
     {
@@ -64,7 +71,7 @@ async fn open_video(
     
     std::thread::spawn(move || {
         // Initialize Decoder
-        let mut decoder = match Decoder::new(&path, low_quality) {
+        let mut decoder = match Decoder::new(&path, quality_mode) {
             Ok(d) => d,
             Err(e) => {
                 eprintln!("Decoder error: {}", e);
@@ -116,9 +123,9 @@ fn toggle_playback(state: State<'_, PreviewState>) -> bool {
 }
 
 #[tauri::command]
-fn toggle_quality(state: State<'_, PreviewState>, low_quality: bool) {
-    let mut quality_guard = state.is_low_quality.lock().unwrap();
-    *quality_guard = low_quality;
+fn set_quality(state: State<'_, PreviewState>, mode: QualityMode) {
+    let mut quality_guard = state.quality_mode.lock().unwrap();
+    *quality_guard = mode;
 }
 
 #[tauri::command]
@@ -167,13 +174,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(PreviewState {
             renderer: Arc::new(Mutex::new(None)),
-            is_low_quality: Arc::new(Mutex::new(false)),
+            quality_mode: Arc::new(Mutex::new(QualityMode::Native)),
             is_playing: Arc::new(Mutex::new(false)),
             session_id: Arc::new(Mutex::new(0)),
         })
         .invoke_handler(tauri::generate_handler![
             open_video,
-            toggle_quality,
+            set_quality,
             toggle_playback,
             update_viewport,
             init_renderer,
