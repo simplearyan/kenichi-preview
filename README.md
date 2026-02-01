@@ -18,6 +18,10 @@ The core of Kenichi Preview is its custom-built rendering engine:
 - **Smart Quality Mode**:
     - **Quality Focus**: Native resolution playback with full visual fidelity.
     - **Performance Mode**: Real-time 1/4 resolution downscaling and frame-discarding for smooth playback on low-end hardware.
+- **Advanced Audio Engineering**:
+    - **Native Audio Output**: Low-latency playback via `cpal` with ring-buffer architecture.
+    - **Dynamic Resampling**: Automatic real-time parameter adjustment (sample rate/layout) for glitch-free playback of any audio format.
+    - **Sample-Accurate Sync**: Precision playhead synchronization using sample counting (PTS) for audio-only files.
 - **Pro UI / UX**:
     - **Glassmorphism Design**: Sleek "Pro Gray" interface with neon-yellow accents.
     - **Frameless Window**: Custom title bar and window controls for a native OS feel.
@@ -27,7 +31,8 @@ The core of Kenichi Preview is its custom-built rendering engine:
 
 - **Language**: Rust (Backend) + TypeScript (Frontend)
 - **Framework**: Tauri v2, React 19
-- **Graphics API**: WGPU (WGSL Shaders)
+- **Graphics API**: WGPU (WGSL Shaders) - Zero-copy texture rendering
+- **Audio API**: cpal (Output), swresample (Processing)
 - **Multimedia**: FFmpeg (via `ffmpeg-next`)
 - **Styling**: Tailwind CSS v4
 

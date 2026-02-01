@@ -1,8 +1,8 @@
 import { useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Plus, Play, Pause } from "lucide-react";
-import { useStore } from "../store/useStore";
-import { usePlayback } from "../hooks/usePlayback";
+import { useStore } from "../../store/useStore";
+import { usePlayback } from "../../hooks/usePlayback";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 

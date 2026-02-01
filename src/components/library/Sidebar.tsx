@@ -1,6 +1,6 @@
 import { ListVideo, Plus, Film, Music, Image as ImageIcon } from "lucide-react";
-import { useStore } from "../store/useStore";
-import { usePlayback } from "../hooks/usePlayback";
+import { useStore } from "../../store/useStore";
+import { usePlayback } from "../../hooks/usePlayback";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 

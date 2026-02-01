@@ -1,5 +1,5 @@
 import { Volume2, VolumeX, Volume1 } from "lucide-react";
-import { usePlayback } from "../hooks/usePlayback";
+import { usePlayback } from "../../hooks/usePlayback";
 
 export const VolumeControl = () => {
     const { volume, isMuted, handleSetVolume, handleToggleMute } = usePlayback();

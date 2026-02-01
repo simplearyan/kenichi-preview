@@ -47,6 +47,7 @@ This document outlines the planned feature development for the Kenichi Preview a
 ## Phase 5: Advanced Playback & UX (Current Focus)
 - [ ] **Precision Review Tools**:
     - [ ] **Seeking & Scrubbing**: Implement secondary timeline/scrubber for fine-grained navigation.
+    - [ ] **On-Hover Previews**: YouTube/Netflix style animated previews on media cards using FFmpeg sidecar.
     - [ ] **Frame Stepping**: Add hardware-accelerated frame stepping (Next/Previous frame) for precision.
     - [ ] **Playback Speed**: Support variable speeds (0.5x to 4x) without pitch distortion.
 - [ ] **UX & Performance Polish**:
@@ -54,14 +55,12 @@ This document outlines the planned feature development for the Kenichi Preview a
     - [ ] **Native Drag-and-Drop**: Support dropping files directly from OS into the UI.
     - [ ] **Asset Management**: Add ability to remove items and clear thumbnail cache.
 
-## Phase 6: Advanced Editing & Export
-- [ ] **Text & Subtitle Overlays**:
-    - Add ability to overlay text and subtitles on the preview.
-    - Support for font selection and basic styling.
-- [ ] **Production Export**:
-    - Use sidecar FFmpeg for high-fidelity rendering and export.
-    - Burn text/subtitle overlays into the exported video using FFmpeg filtergraphs.
-    - Implement progress tracking for export tasks in the Sidebar.
+- [ ] **Advanced Production Tools**:
+    - [ ] **Snapshot & Capture**: Take high-quality snapshots of current preview or specific frames.
+    - [ ] **Frame Export**: Ability to save and export individual frames to computer using FFmpeg sidecar.
+    - [ ] **Text & Subtitle Overlays**: Add ability to overlay text and subtitles on the preview.
+    - [ ] **Production Export**: Use sidecar FFmpeg for high-fidelity rendering and export.
+    - [ ] **Production Polish**: Burn overlays into exported video and track progress in Sidebar.
 
 ## Phase 7: Polish & Distribution
 - [ ] **Settings Integration**: Save user preferences (volume, quality, proxy settings).

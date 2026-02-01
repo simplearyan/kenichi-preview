@@ -1,7 +1,7 @@
 import { Maximize2, Subtitles, Play, Pause, FastForward, ShieldCheck, Zap } from "lucide-react";
-import { useStore } from "../store/useStore";
-import { usePlayback } from "../hooks/usePlayback";
-import { formatTime } from "../utils/format";
+import { useStore } from "../../store/useStore";
+import { usePlayback } from "../../hooks/usePlayback";
+import { formatTime } from "../../utils/format";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { VolumeControl } from "./VolumeControl";

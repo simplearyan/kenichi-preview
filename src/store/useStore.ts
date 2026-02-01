@@ -9,6 +9,8 @@ export interface MediaItem {
     processing?: boolean;
 }
 
+export type PlaybackStatus = "Playing" | "Paused" | "Buffering" | "Finished" | "Error";
+
 interface PlaybackState {
     isPlaying: boolean;
     currentTime: number;
@@ -20,6 +22,7 @@ interface PlaybackState {
     isRendererReady: boolean;
     volume: number;
     isMuted: boolean;
+    playbackStatus: PlaybackStatus;
 
     // Actions
     setIsPlaying: (playing: boolean) => void;
@@ -33,6 +36,7 @@ interface PlaybackState {
     setIsRendererReady: (ready: boolean) => void;
     setVolume: (volume: number) => void;
     setIsMuted: (muted: boolean) => void;
+    setPlaybackStatus: (status: PlaybackStatus) => void;
 }
 
 export const useStore = create<PlaybackState>((set) => ({
@@ -46,8 +50,10 @@ export const useStore = create<PlaybackState>((set) => ({
     isRendererReady: false,
     volume: 1.0,
     isMuted: false,
+    playbackStatus: "Paused",
 
     setIsPlaying: (isPlaying) => set({ isPlaying }),
+    setPlaybackStatus: (playbackStatus) => set({ playbackStatus }),
     setCurrentTime: (currentTime) => set({ currentTime }),
     setDuration: (duration) => set({ duration }),
     setQualityMode: (qualityMode) => set({ qualityMode }),

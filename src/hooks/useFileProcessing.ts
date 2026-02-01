@@ -57,6 +57,7 @@ export function useFileProcessing() {
                 item.path
             ]);
             const probeResult = await ffprobe.execute();
+            console.log(`[useFileProcessing] Probe Result for ${item.name}:`, probeResult);
 
             let duration = 0;
             let type: 'Video' | 'Audio' | 'Image' = 'Video';

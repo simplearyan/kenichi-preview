@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { TitleBar } from "./components/TitleBar";
-import { Sidebar } from "./components/Sidebar";
-import { PreviewArea } from "./components/PreviewArea";
-import { ControlBar } from "./components/ControlBar";
+import { TitleBar } from "./components/layout/TitleBar";
+import { Sidebar } from "./components/library/Sidebar";
+import { PreviewArea } from "./components/player/PreviewArea";
+import { ControlBar } from "./components/player/ControlBar";
 import { useTauriEvents } from "./hooks/useTauriEvents";
 import { useFileProcessing } from "./hooks/useFileProcessing";
 import { useStore } from "./store/useStore";

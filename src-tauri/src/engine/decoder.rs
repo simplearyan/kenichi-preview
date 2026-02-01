@@ -29,6 +29,9 @@ pub struct Decoder {
     audio_decoder: Option<ffmpeg::decoder::Audio>,
     scaler: Option<Context>,
     resampler: Option<Resampler>,
+    resampler_in_format: Option<ffmpeg::util::format::sample::Sample>,
+    resampler_in_rate: u32,
+    resampler_in_layout: ffmpeg::channel_layout::ChannelLayout,
     // Metadata
     duration_secs: f64,
     time_base: ffmpeg::util::rational::Rational,
@@ -39,7 +42,6 @@ pub struct Decoder {
     resampled_frame: Audio,
     // Audio Buffer (Interleaved samples)
     pub audio_buffer: Vec<f32>,
-    pub is_static_image: bool,
     audio_pts_counter: u64,
 }
 
@@ -104,6 +106,9 @@ impl Decoder {
         let mut audio_decoder = None;
         let mut audio_stream_index = None;
         let mut resampler = None;
+        let mut resampler_in_format = None;
+        let mut resampler_in_rate = 0;
+        let mut resampler_in_layout = ffmpeg::channel_layout::ChannelLayout::empty();
         let mut audio_time_base = ffmpeg::util::rational::Rational(0, 1);
 
         if let Some(s) = audio_stream {
@@ -156,18 +161,11 @@ impl Decoder {
                     e
                 })?,
             );
+            resampler_in_format = Some(ad.format());
+            resampler_in_rate = ad.rate();
+            resampler_in_layout = src_layout;
             audio_decoder = Some(ad);
         }
-
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-        let is_static_image = matches!(
-            ext.as_str(),
-            "jpg" | "jpeg" | "png" | "webp" | "tiff" | "tif" | "bmp"
-        );
 
         Ok(Self {
             input_ctx,
@@ -177,6 +175,9 @@ impl Decoder {
             audio_decoder,
             scaler,
             resampler,
+            resampler_in_format,
+            resampler_in_rate,
+            resampler_in_layout,
             duration_secs,
             time_base,
             _audio_time_base: audio_time_base,
@@ -185,7 +186,6 @@ impl Decoder {
             audio_frame: Audio::empty(),
             resampled_frame: Audio::empty(),
             audio_buffer: Vec::with_capacity(4096),
-            is_static_image,
             audio_pts_counter: 0,
         })
     }
@@ -235,8 +235,62 @@ impl Decoder {
 
                 if let Some(ref mut ad) = self.audio_decoder {
                     ad.send_packet(&packet)?;
+                    let mut frames_decoded = 0;
                     while ad.receive_frame(&mut self.audio_frame).is_ok() {
+                        frames_decoded += 1;
                         if let Some(ref mut resampler) = self.resampler {
+                            // Dynamic Re-initialization if parameters changed
+                            let frame_format = self.audio_frame.format();
+                            let frame_rate = self.audio_frame.rate();
+                            let frame_channels = self.audio_frame.channels();
+                            let frame_layout = if self.audio_frame.channel_layout().is_empty() {
+                                ffmpeg::channel_layout::ChannelLayout::default(
+                                    frame_channels as i32,
+                                )
+                            } else {
+                                self.audio_frame.channel_layout()
+                            };
+
+                            let needs_reinit = self.resampler_in_format != Some(frame_format)
+                                || self.resampler_in_rate != frame_rate
+                                || self.resampler_in_layout != frame_layout;
+
+                            if needs_reinit {
+                                eprintln!(
+                                    "[Decoder] Audio parameters changed! Re-initializing resampler: {:?}, {}Hz, {:?} -> {:?}, {}Hz, {:?}",
+                                    self.resampler_in_format,
+                                    self.resampler_in_rate,
+                                    self.resampler_in_layout,
+                                    frame_format,
+                                    frame_rate,
+                                    frame_layout
+                                );
+
+                                let target_rate = 48000;
+                                let target_layout = ffmpeg::channel_layout::ChannelLayout::STEREO;
+
+                                if let Ok(new_resampler) =
+                                    ffmpeg::software::resampling::context::Context::get(
+                                        frame_format,
+                                        frame_layout,
+                                        frame_rate,
+                                        ffmpeg::util::format::sample::Sample::F32(
+                                            ffmpeg::util::format::sample::Type::Packed,
+                                        ),
+                                        target_layout,
+                                        target_rate,
+                                    )
+                                {
+                                    *resampler = new_resampler;
+                                    self.resampler_in_format = Some(frame_format);
+                                    self.resampler_in_rate = frame_rate;
+                                    self.resampler_in_layout = frame_layout;
+                                } else {
+                                    eprintln!("[Decoder] Failed to re-initialize resampler!");
+                                    continue;
+                                }
+                            }
+
                             // Correctly size the resampled frame
                             // We resample to 48000 Hz Stereo
                             let target_rate = 48000;
@@ -246,15 +300,6 @@ impl Decoder {
                                 / self.audio_frame.rate() as i64)
                                 as usize;
 
-                            self.resampled_frame.set_format(
-                                ffmpeg::util::format::sample::Sample::F32(
-                                    ffmpeg::util::format::sample::Type::Packed,
-                                ),
-                            );
-                            self.resampled_frame
-                                .set_channel_layout(ffmpeg::channel_layout::ChannelLayout::STEREO);
-                            self.resampled_frame.set_rate(target_rate);
-                            self.resampled_frame.set_samples(out_samples);
                             unsafe {
                                 self.resampled_frame.alloc(
                                     ffmpeg::util::format::sample::Sample::F32(
@@ -284,17 +329,30 @@ impl Decoder {
                                 )
                             };
                             self.audio_buffer.extend_from_slice(samples);
+
+                            // Diagnostic: Check if we are getting literal silence
+                            let max_amplitude = samples.iter().fold(0.0f32, |m, &s| m.max(s.abs()));
+                            if self.audio_pts_counter % 48000 < converted as u64 {
+                                eprintln!(
+                                    "[Decoder] Audio Amplitude: {:.6}, samples: {}, frames_in_packet: {}",
+                                    max_amplitude, converted, frames_decoded
+                                );
+                            }
+
                             self.audio_pts_counter += converted as u64;
                         }
                     }
+                    if frames_decoded > 0 {
+                        // Use sample counter for reliable audio timing (48kHz Stereo)
+                        let calculated_pts = self.audio_pts_counter as f64 / 48000.0;
+                        return Ok(Some(DecodeResult::Audio {
+                            pts: calculated_pts,
+                        }));
+                    } else {
+                        // No frames yet, continue reading packets
+                        continue;
+                    }
                 }
-
-                // Use sample counter for reliable audio timing (48kHz Stereo)
-                let calculated_pts = self.audio_pts_counter as f64 / 48000.0;
-
-                return Ok(Some(DecodeResult::Audio {
-                    pts: calculated_pts,
-                }));
             }
         }
 

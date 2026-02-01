@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod decoder;
+pub mod playback;
 pub mod renderer;
 pub mod state;
 pub mod sync;

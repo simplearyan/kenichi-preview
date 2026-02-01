@@ -8,10 +8,20 @@ pub enum QualityMode {
     Proxy,  // 25% resolution
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+pub enum PlaybackStatus {
+    Playing,
+    Paused,
+    Buffering,
+    Finished,
+    Error,
+}
+
 #[derive(Clone, Serialize)]
 pub struct PlaybackPayload {
     pub current_time: f64,
     pub duration: f64,
+    pub status: PlaybackStatus,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
@@ -31,6 +41,7 @@ pub struct Rect {
     pub height: f32,
 }
 
+#[derive(Clone)]
 pub struct PreviewState {
     pub renderer: Arc<Mutex<Option<crate::engine::renderer::Renderer>>>,
     pub quality_mode: Arc<Mutex<QualityMode>>,

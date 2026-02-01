@@ -1,4 +1,4 @@
-use tauri::{State, Window, Emitter, Manager};
+use tauri::{State, Window, Manager};
 use crate::engine::{Engine, QualityMode, AspectMode};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -10,7 +10,6 @@ pub async fn open_video(
     path: String,
 ) -> Result<(), String> {
     let path = PathBuf::from(path);
-    let quality_mode = *engine.state.quality_mode.lock().unwrap();
 
     // 1. Initialize Renderer if not already done
     {
@@ -28,96 +27,21 @@ pub async fn open_video(
         let _ = r.repaint();
     }
 
-    let renderer_clone = engine.state.renderer.clone();
-    let playing_clone = engine.state.is_playing.clone();
     let session_id_clone = engine.state.session_id.clone();
-    let audio_producer_clone = engine.state.audio_producer.clone();
     
-    let current_session = {
-        let mut s = engine.state.session_id.lock().unwrap();
+    // Increment session ID to stop any previous playback
+    {
+        let mut s = session_id_clone.lock().unwrap();
         *s += 1;
-        *s
-    };
+    }
 
     {
         let mut p = engine.state.is_playing.lock().unwrap();
         *p = true; 
     }
 
-    std::thread::spawn(move || {
-        let mut decoder = match crate::engine::decoder::Decoder::new(&path, quality_mode) {
-            Ok(d) => d,
-            Err(e) => {
-                eprintln!("Decoder error: {}", e);
-                return;
-            }
-        };
-
-        if decoder.video_stream_index.is_none() {
-            let mut guard = renderer_clone.lock().unwrap();
-            if let Some(r) = guard.as_mut() {
-                r.clear_video();
-                let _ = r.repaint();
-            }
-        }
-
-        let mut current_time;
-        let (duration, _, _) = decoder.get_metadata();
-
-        while let Ok(Some(result)) = decoder.decode_next() {
-            if *session_id_clone.lock().unwrap() != current_session {
-                break;
-            }
-
-            match result {
-                crate::engine::decoder::DecodeResult::Video { data, width, height, stride, pts } => {
-                     current_time = pts;
-                     let mut guard = renderer_clone.lock().unwrap();
-                     if let Some(r) = guard.as_mut() {
-                         let _ = r.render_frame(&data, width, height, stride);
-                     }
-                     // Only sleep for video pacing
-                     std::thread::sleep(std::time::Duration::from_millis(30)); 
-                }
-                crate::engine::decoder::DecodeResult::Audio { pts } => {
-                     current_time = pts;
-                     // Don't sleep here, but yield to prevent CPU pinning if buffer is full
-                     std::thread::yield_now();
-                }
-            }
-
-            if !decoder.audio_buffer.is_empty() {
-                if let Ok(mut guard) = audio_producer_clone.lock() {
-                    if let Some(ref mut producer) = *guard {
-                        let pushed = producer.push_slice(&decoder.audio_buffer);
-                        decoder.audio_buffer.drain(..pushed);
-                        
-                        // If buffer is very full, slow down slightly
-                        if producer.len() > 24000 { // ~0.5s of audio
-                            std::thread::sleep(std::time::Duration::from_millis(5));
-                        }
-                    }
-                }
-            }
-
-            while !*playing_clone.lock().unwrap() {
-                if *session_id_clone.lock().unwrap() != current_session {
-                    return;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-
-            let _ = window.emit("playback-update", crate::engine::state::PlaybackPayload {
-                current_time,
-                duration,
-            });
-        }
-
-        // Keep session alive for static images or just to show the last frame
-        while *session_id_clone.lock().unwrap() == current_session {
-             std::thread::sleep(std::time::Duration::from_millis(100));
-        }
-    });
+    let playback_engine = crate::engine::playback::PlaybackEngine::new(engine.state.clone(), window);
+    playback_engine.playback_thread(path);
 
     Ok(())
 }
