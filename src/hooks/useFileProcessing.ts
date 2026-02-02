@@ -67,7 +67,7 @@ export function useFileProcessing() {
             // 1. First, Probing Metadata (Fast)
             const ffprobe = Command.sidecar('bin/ffprobe', [
                 '-v', 'error',
-                '-show_entries', 'format=duration,size,bit_rate,format_name:stream=codec_type,width,height,sample_rate,r_frame_rate,codec_name,channels,channel_layout,pix_fmt,profile,level,sample_fmt,bit_rate',
+                '-show_entries', 'format=duration,size,bit_rate,format_name:stream=codec_type,width,height,sample_rate,r_frame_rate,codec_name,channels,channel_layout,pix_fmt,profile,level,sample_fmt,bit_rate,color_space,color_transfer,color_primaries,color_range',
                 '-print_format', 'json',
                 item.path
             ]);
@@ -90,6 +90,10 @@ export function useFileProcessing() {
             let audioLayout = '';
             let videoProfile = '';
             let audioDepth = '';
+            let colorSpace = '';
+            let colorTransfer = '';
+            let colorPrimaries = '';
+            let colorRange = '';
             let type: 'Video' | 'Audio' | 'Image' = 'Video';
 
             if (probeResult.code === 0) {
@@ -109,6 +113,13 @@ export function useFileProcessing() {
                         height = videoStream.height;
                         videoCodec = videoStream.codec_name;
                         pixelFormat = videoStream.pix_fmt;
+
+                        // Color Metadata
+                        colorSpace = videoStream.color_space;
+                        colorTransfer = videoStream.color_transfer;
+                        colorPrimaries = videoStream.color_primaries;
+                        colorRange = videoStream.color_range;
+
                         if (videoStream.r_frame_rate) {
                             const [num, den] = videoStream.r_frame_rate.split('/').map(Number);
                             if (den > 0) fps = num / den;
@@ -203,7 +214,11 @@ export function useFileProcessing() {
                         pixelFormat,
                         audioLayout,
                         videoProfile,
-                        audioDepth
+                        audioDepth,
+                        colorSpace,
+                        colorTransfer,
+                        colorPrimaries,
+                        colorRange
                     });
                     return;
                 }
@@ -228,7 +243,11 @@ export function useFileProcessing() {
                 pixelFormat,
                 audioLayout,
                 videoProfile,
-                audioDepth
+                audioDepth,
+                colorSpace,
+                colorTransfer,
+                colorPrimaries,
+                colorRange
             });
         } catch (e) {
             console.error('Processing error for ' + item.name, e);

@@ -1,11 +1,14 @@
-import { Minus, Square, Play, X, Zap, Timer } from "lucide-react";
+import { Minus, Square, Play, X, Zap, Timer, Info } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { usePlayback } from "../../hooks/usePlayback";
+import { useStore } from "../../store/useStore";
 
 const appWindow = getCurrentWindow();
 
 export const TitleBar = () => {
     const { syncMode, handleSetSyncMode } = usePlayback();
+    const showMetadata = useStore((state) => state.showMetadata);
+    const setShowMetadata = useStore((state) => state.setShowMetadata);
 
     return (
         <header className="h-10 flex items-center justify-between glass-panel drag-region px-4 z-50">
@@ -19,6 +22,15 @@ export const TitleBar = () => {
             </div>
 
             <div className="flex items-center no-drag">
+                {/* Metadata Toggle */}
+                <button
+                    onClick={() => setShowMetadata(!showMetadata)}
+                    className={`p-2 hover:bg-white/5 transition-colors mr-2 rounded-md ${showMetadata ? 'text-brand-yellow bg-brand-yellow/10' : 'text-zinc-400'}`}
+                    title="Toggle Advanced Metadata"
+                >
+                    <Info className="w-4 h-4" />
+                </button>
+
                 {/* Sync Mode Toggle */}
                 <div className="flex items-center gap-1 mr-4 border-r border-white/10 pr-4 h-5">
                     <button

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Plus, Play, Pause } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import { usePlayback } from "../../hooks/usePlayback";
+import { MetadataOverlay } from "../overlay/MetadataOverlay";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -89,6 +90,8 @@ export const PreviewArea = () => {
                     </div>
                 </div>
             </div>
+
+            <MetadataOverlay />
         </main>
     );
 };

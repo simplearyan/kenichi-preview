@@ -22,6 +22,10 @@ export interface MediaItem {
     audioLayout?: string;  // e.g. "stereo", "mono", "5.1"
     videoProfile?: string; // e.g. "Main 4.1"
     audioDepth?: string;   // e.g. "16-bit", "fltp"
+    colorSpace?: string;   // e.g. "bt709"
+    colorTransfer?: string; // e.g. "bt709"
+    colorPrimaries?: string; // e.g. "bt709"
+    colorRange?: string;    // e.g. "tv" (limited) or "pc" (full)
 }
 
 export type PlaybackStatus = "Playing" | "Paused" | "Buffering" | "Finished" | "Error";
@@ -54,6 +58,10 @@ interface PlaybackState {
     setIsMuted: (muted: boolean) => void;
     setPlaybackStatus: (status: PlaybackStatus) => void;
     setSyncMode: (mode: "Realtime" | "Fixed") => void;
+
+    // UI State
+    showMetadata: boolean;
+    setShowMetadata: (show: boolean) => void;
 }
 
 export const useStore = create<PlaybackState>((set) => ({
@@ -69,6 +77,7 @@ export const useStore = create<PlaybackState>((set) => ({
     isMuted: false,
     playbackStatus: "Paused",
     syncMode: "Realtime",
+    showMetadata: false,
 
     setIsPlaying: (isPlaying) => set({ isPlaying }),
     setPlaybackStatus: (playbackStatus) => set({ playbackStatus }),
@@ -91,4 +100,5 @@ export const useStore = create<PlaybackState>((set) => ({
     setVolume: (volume) => set({ volume }),
     setIsMuted: (isMuted) => set({ isMuted }),
     setSyncMode: (syncMode) => set({ syncMode }),
+    setShowMetadata: (showMetadata) => set({ showMetadata }),
 }));

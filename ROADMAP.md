@@ -62,6 +62,12 @@ This document outlines the planned feature development for the Kenichi Preview a
     - [ ] **Production Export**: Use sidecar FFmpeg for high-fidelity rendering and export.
     - [ ] **Production Polish**: Burn overlays into exported video and track progress in Sidebar.
 
+## Phase 6: Future Roadmap & Research
+- [ ] **Research**: Svelte Migration/Prototyping for High-Freq UI
+- [ ] **Feature**: Trim Tool Implementation (Action Bar)
+- [ ] **Core**: Frame-Accurate Seeking (Backend Decode)
+- [ ] **Feature**: Advanced Metadata Overlay (Top Bar Toggle)
+
 ## Phase 7: Polish & Distribution
 - [ ] **Settings Integration**: Save user preferences (volume, quality, proxy settings).
 - [ ] **Distribution**: Sign and notarize the application for Windows and macOS.
