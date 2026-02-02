@@ -97,6 +97,15 @@ export const usePlayback = () => {
         }
     };
 
+    const handleSeek = async (time: number) => {
+        try {
+            await invoke("seek_video", { time });
+            // Optimistically update store if needed, though event listener handles it
+        } catch (err) {
+            console.error("Failed to seek:", err);
+        }
+    };
+
     const handleToggleAspect = async () => {
         const modes: ("Fit" | "Stretch" | "Cinema" | "Classic" | "Wide")[] = ["Fit", "Stretch", "Cinema", "Classic", "Wide"];
         const nextIndex = (modes.indexOf(aspectMode) + 1) % modes.length;
@@ -114,6 +123,7 @@ export const usePlayback = () => {
         handleSetVolume,
         handleToggleMute,
         selectMedia,
+        handleSeek,
         currentFile,
         volume,
         isMuted

@@ -208,22 +208,22 @@ export const Sidebar = () => {
                                         </div>
                                     </div>
 
-                                    {/* Bottom Tech Details Row (Debug View) - Always show for Video/Audio */}
+                                    {/* Bottom Tech Details Row (Debug View) - Improved Contrast */}
                                     {(item.type === 'Video' || item.type === 'Audio') && (
-                                        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-2 pt-2 border-t border-white/5 text-[9px] font-mono text-zinc-500">
+                                        <div className="flex flex-col gap-0.5 mt-2 pt-1.5 border-t border-white/5 text-[9px] font-mono text-zinc-400">
 
                                             {/* Row 1: Codec & Profile */}
-                                            <div className="col-span-2 flex items-center gap-1.5 truncate">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-                                                <span className="text-zinc-400">
+                                            <div className="flex items-center gap-1.5 truncate">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+                                                <span className="font-semibold text-zinc-400">
                                                     {item.videoCodec || item.audioCodec || 'Unknown Codec'}
                                                 </span>
-                                                {item.videoProfile && <span className="text-zinc-600">{item.videoProfile}</span>}
-                                                {item.audioDepth && <span className="text-zinc-600">{item.audioDepth}</span>}
+                                                {item.videoProfile && <span className="text-zinc-500 opacity-80">{item.videoProfile}</span>}
+                                                {item.audioDepth && <span className="text-zinc-500 opacity-80">{item.audioDepth}</span>}
                                             </div>
 
                                             {/* Row 2: Bitrate & Resolution/Layout */}
-                                            <div className="col-span-2 flex items-center justify-between">
+                                            <div className="flex items-center justify-between opacity-80">
                                                 <div className="flex items-center gap-1.5">
                                                     {(item.type === 'Video' || item.type === 'Audio') && item.bitrate ? (
                                                         <span>

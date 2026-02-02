@@ -165,15 +165,16 @@ export function useFileProcessing() {
                 const thumbPath = `${thumbDir}${sep}${hash}.jpg`;
 
                 if (!(await exists(thumbPath))) {
-                    const command = Command.sidecar('bin/ffmpeg', [
+                    const args = [
                         '-y',
-                        '-ss', type === 'Image' ? '0' : '00:00:01',
+                        ...(type === 'Image' ? [] : ['-ss', '00:00:01']),
                         '-i', item.path,
                         '-vframes', '1',
                         '-vf', 'scale=320:-1',
                         '-q:v', '4',
                         thumbPath
-                    ]);
+                    ];
+                    const command = Command.sidecar('bin/ffmpeg', args);
                     await command.execute();
                 }
 
