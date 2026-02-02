@@ -14,6 +14,14 @@ export interface MediaItem {
     sampleRate?: number;  // Hz
     bitrate?: number;     // bps
     container?: string;   // e.g. 'mp4', 'mov'
+    fps?: number;
+    videoCodec?: string;
+    audioCodec?: string;
+    channels?: number;
+    pixelFormat?: string;
+    audioLayout?: string;  // e.g. "stereo", "mono", "5.1"
+    videoProfile?: string; // e.g. "Main 4.1"
+    audioDepth?: string;   // e.g. "16-bit", "fltp"
 }
 
 export type PlaybackStatus = "Playing" | "Paused" | "Buffering" | "Finished" | "Error";

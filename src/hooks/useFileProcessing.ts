@@ -17,7 +17,14 @@ export function useFileProcessing() {
     };
 
     const processItem = useCallback(async (item: MediaItem, index: number) => {
-        if (item.processed || item.processing || processingQueue.current.has(item.path)) return;
+        // Skip if already running
+        if (item.processing || processingQueue.current.has(item.path)) return;
+
+        // Skip if fully processed (has metadata)
+        if (item.processed) {
+            const hasMetadata = item.type === 'Image' || (item.fps !== undefined && item.bitrate !== undefined);
+            if (hasMetadata) return;
+        }
 
         processingQueue.current.add(item.path);
         updateMediaItem(index, { processing: true });
@@ -53,7 +60,7 @@ export function useFileProcessing() {
             // 1. First, Probing Metadata (Fast)
             const ffprobe = Command.sidecar('bin/ffprobe', [
                 '-v', 'error',
-                '-show_entries', 'format=duration,size,bit_rate,format_name:stream=codec_type,width,height,sample_rate',
+                '-show_entries', 'format=duration,size,bit_rate,format_name:stream=codec_type,width,height,sample_rate,r_frame_rate,codec_name,channels,channel_layout,pix_fmt,profile,level,sample_fmt,bit_rate',
                 '-print_format', 'json',
                 item.path
             ]);
@@ -67,6 +74,14 @@ export function useFileProcessing() {
             let width = 0;
             let height = 0;
             let sampleRate = 0;
+            let fps = 0;
+            let videoCodec = '';
+            let audioCodec = '';
+            let channels = 0;
+            let pixelFormat = '';
+            let audioLayout = '';
+            let videoProfile = '';
+            let audioDepth = '';
             let type: 'Video' | 'Audio' | 'Image' = 'Video';
 
             if (probeResult.code === 0) {
@@ -84,10 +99,37 @@ export function useFileProcessing() {
                     if (videoStream) {
                         width = videoStream.width;
                         height = videoStream.height;
+                        videoCodec = videoStream.codec_name;
+                        pixelFormat = videoStream.pix_fmt;
+                        if (videoStream.r_frame_rate) {
+                            const [num, den] = videoStream.r_frame_rate.split('/').map(Number);
+                            if (den > 0) fps = num / den;
+                        }
+                        // Video Profile (e.g. "Main 4.1")
+                        if (videoStream.profile) {
+                            videoProfile = videoStream.profile;
+                            if (videoStream.level && videoStream.level !== 'unknown') {
+                                // converting level 51 -> 5.1 if needed, usually ffprobe gives raw number or string
+                                // For H.264, level is often just a number like 41. Let's keep it simple.
+                                videoProfile += ` ${videoStream.level}`;
+                            }
+                        }
+                        // Prefer stream bitrate if available, else format bitrate
+                        if (videoStream.bit_rate) bitrate = parseInt(videoStream.bit_rate, 10);
                     }
 
                     if (audioStream) {
                         sampleRate = parseInt(audioStream.sample_rate || '0', 10);
+                        audioCodec = audioStream.codec_name;
+                        channels = audioStream.channels;
+                        audioLayout = audioStream.channel_layout; // e.g. "stereo"
+                        audioDepth = audioStream.sample_fmt; // e.g. "fltp"
+
+                        // Map simple layouts if missing
+                        if (!audioLayout && channels > 0) {
+                            if (channels === 1) audioLayout = 'mono';
+                            if (channels === 2) audioLayout = 'stereo';
+                        }
                     }
 
                     const ext = item.path.split('.').pop()?.toLowerCase();
@@ -141,7 +183,15 @@ export function useFileProcessing() {
                         height,
                         sampleRate,
                         bitrate,
-                        container
+                        container,
+                        fps,
+                        videoCodec,
+                        audioCodec,
+                        channels,
+                        pixelFormat,
+                        audioLayout,
+                        videoProfile,
+                        audioDepth
                     });
                     return;
                 }
@@ -158,7 +208,15 @@ export function useFileProcessing() {
                 height,
                 sampleRate,
                 bitrate,
-                container
+                container,
+                fps,
+                videoCodec,
+                audioCodec,
+                channels,
+                pixelFormat,
+                audioLayout,
+                videoProfile,
+                audioDepth
             });
         } catch (e) {
             console.error('Processing error:', e);
@@ -170,9 +228,15 @@ export function useFileProcessing() {
 
     useEffect(() => {
         playlist.forEach((item, index) => {
-            if (!item.processed && !item.processing) {
+            // Re-process if not processed OR if it's a non-image missing FPS (stale metadata)
+            const needsProcessing = !item.processed ||
+                (!item.processing && item.type !== 'Image' && item.fps === undefined);
+
+            if (needsProcessing && !item.processing) {
                 processItem(item, index);
             }
         });
     }, [playlist, processItem]);
+
+    return { processItem };
 }
