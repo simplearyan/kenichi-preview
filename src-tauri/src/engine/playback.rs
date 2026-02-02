@@ -1,5 +1,5 @@
 use super::state::PreviewState;
-use super::state::SyncMode;
+use super::types::SyncMode;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Window};
@@ -31,7 +31,7 @@ impl PlaybackEngine {
         };
 
         std::thread::spawn(move || {
-            let mut decoder = match crate::engine::decoder::Decoder::new(&path, quality_mode) {
+            let mut decoder = match crate::engine::media::Decoder::new(&path, quality_mode) {
                 Ok(d) => d,
                 Err(e) => {
                     eprintln!("[PlaybackEngine] Decoder error: {}", e);
@@ -54,10 +54,10 @@ impl PlaybackEngine {
             // Initial update so UI knows duration immediately
             let _ = window.emit(
                 "playback-update",
-                crate::engine::state::PlaybackPayload {
+                crate::engine::PlaybackPayload {
                     current_time,
                     duration,
-                    status: crate::engine::state::PlaybackStatus::Playing,
+                    status: crate::engine::PlaybackStatus::Playing,
                 },
             );
 
@@ -89,10 +89,10 @@ impl PlaybackEngine {
                                                      // Send immediate update
                         let _ = window.emit(
                             "playback-update",
-                            crate::engine::state::PlaybackPayload {
+                            crate::engine::PlaybackPayload {
                                 current_time,
                                 duration,
-                                status: crate::engine::state::PlaybackStatus::Buffering,
+                                status: crate::engine::PlaybackStatus::Buffering,
                             },
                         );
                     }
@@ -104,10 +104,10 @@ impl PlaybackEngine {
                     Ok(None) => {
                         let _ = window.emit(
                             "playback-update",
-                            crate::engine::state::PlaybackPayload {
+                            crate::engine::PlaybackPayload {
                                 current_time,
                                 duration,
-                                status: crate::engine::state::PlaybackStatus::Finished,
+                                status: crate::engine::PlaybackStatus::Finished,
                             },
                         );
                         break; // EOF
@@ -116,10 +116,10 @@ impl PlaybackEngine {
                         eprintln!("[PlaybackEngine] Error during decoding: {}", e);
                         let _ = window.emit(
                             "playback-update",
-                            crate::engine::state::PlaybackPayload {
+                            crate::engine::PlaybackPayload {
                                 current_time,
                                 duration,
-                                status: crate::engine::state::PlaybackStatus::Error,
+                                status: crate::engine::PlaybackStatus::Error,
                             },
                         );
                         break;
@@ -138,7 +138,7 @@ impl PlaybackEngine {
                 let mut should_emit_update = false;
 
                 match result {
-                    crate::engine::decoder::DecodeResult::Video {
+                    crate::engine::media::DecodeResult::Video {
                         data,
                         width,
                         height,
@@ -177,7 +177,7 @@ impl PlaybackEngine {
                             }
                         }
                     }
-                    crate::engine::decoder::DecodeResult::Audio { pts } => {
+                    crate::engine::media::DecodeResult::Audio { pts } => {
                         // Only update time from audio if there is NO video stream
                         if decoder.video_stream_index.is_none() {
                             current_time = pts;
@@ -243,10 +243,10 @@ impl PlaybackEngine {
                 if !*playing_clone.lock().unwrap() {
                     let _ = window.emit(
                         "playback-update",
-                        crate::engine::state::PlaybackPayload {
+                        crate::engine::PlaybackPayload {
                             current_time,
                             duration,
-                            status: crate::engine::state::PlaybackStatus::Paused,
+                            status: crate::engine::PlaybackStatus::Paused,
                         },
                     );
 
@@ -262,10 +262,10 @@ impl PlaybackEngine {
                 if should_emit_update {
                     let _ = window.emit(
                         "playback-update",
-                        crate::engine::state::PlaybackPayload {
+                        crate::engine::PlaybackPayload {
                             current_time,
                             duration,
-                            status: crate::engine::state::PlaybackStatus::Playing,
+                            status: crate::engine::PlaybackStatus::Playing,
                         },
                     );
                 }

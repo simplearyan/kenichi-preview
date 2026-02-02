@@ -16,7 +16,7 @@ pub async fn open_video(
     {
         let needs_init = engine.state.renderer.lock().unwrap().is_none();
         if needs_init {
-            let r = crate::engine::renderer::Renderer::new(Arc::new(window.clone()))
+            let r = crate::engine::output::Renderer::new(Arc::new(window.clone()))
                 .await
                 .map_err(|e| e.to_string())?;
             let mut guard = engine.state.renderer.lock().unwrap();
@@ -103,7 +103,7 @@ pub fn set_aspect_ratio(engine: State<'_, Engine>, mode: AspectMode) {
 pub async fn init_renderer(window: Window, engine: State<'_, Engine>) -> Result<(), String> {
     let needs_init = engine.state.renderer.lock().unwrap().is_none();
     if needs_init {
-        let r = crate::engine::renderer::Renderer::new(Arc::new(window)).await.map_err(|e| e.to_string())?;
+        let r = crate::engine::output::Renderer::new(Arc::new(window)).await.map_err(|e| e.to_string())?;
         let mut renderer_guard = engine.state.renderer.lock().unwrap();
         *renderer_guard = Some(r);
         if let Some(r) = renderer_guard.as_mut() {

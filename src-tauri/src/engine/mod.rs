@@ -1,15 +1,17 @@
-pub mod audio;
-pub mod decoder;
+pub mod media;
+pub mod output;
 pub mod playback;
-pub mod renderer;
 pub mod state;
+pub mod types;
 
 pub use state::*;
+pub use types::*;
+
 use std::sync::{Arc, Mutex};
 
 pub struct Engine {
     pub state: PreviewState,
-    pub _audio_session: Arc<Mutex<Option<audio::AudioSession>>>,
+    pub _audio_session: Arc<Mutex<Option<output::AudioSession>>>,
 }
 
 impl Engine {
@@ -36,7 +38,7 @@ impl Engine {
         let rb = HeapRb::<f32>::new(192000);
         let (producer, consumer) = rb.split();
 
-        let session = audio::AudioSession::new(self.state.volume.clone(), consumer)?;
+        let session = output::AudioSession::new(self.state.volume.clone(), consumer)?;
 
         // Connect the producer to the engine state for the decoder to use
         let mut producer_guard = self.state.audio_producer.lock().unwrap();

@@ -20,7 +20,7 @@ pub struct Renderer {
     pub last_video_size: Option<(u32, u32)>,
 }
 
-use super::state::{AspectMode, Rect};
+use super::super::types::{AspectMode, Rect};
 
 impl Renderer {
     pub async fn new(window: Arc<tauri::Window>) -> anyhow::Result<Self> {

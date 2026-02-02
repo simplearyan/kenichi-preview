@@ -1,4 +1,4 @@
-use super::state::QualityMode;
+use super::super::types::QualityMode;
 use ffmpeg_next as ffmpeg;
 use ffmpeg_next::format::{input, Pixel};
 use ffmpeg_next::media::Type;
