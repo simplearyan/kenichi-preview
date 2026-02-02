@@ -17,13 +17,22 @@ export function useFileProcessing() {
     };
 
     const processItem = useCallback(async (item: MediaItem, index: number) => {
+        console.log(`[useFileProcessing] Request to process: ${item.name} | Processed: ${item.processed} | Processing: ${item.processing}`);
+
         // Skip if already running
-        if (item.processing || processingQueue.current.has(item.path)) return;
+        if (item.processing || processingQueue.current.has(item.path)) {
+            console.log(`[useFileProcessing] Skipping ${item.name} - Already processing`);
+            return;
+        }
 
         // Skip if fully processed (has metadata)
         if (item.processed) {
             const hasMetadata = item.type === 'Image' || (item.fps !== undefined && item.bitrate !== undefined);
-            if (hasMetadata) return;
+            if (hasMetadata) {
+                console.log(`[useFileProcessing] Skipping ${item.name} - Already has metadata`);
+                return;
+            }
+            console.log(`[useFileProcessing] Re-processing ${item.name} - Missing metadata`);
         }
 
         processingQueue.current.add(item.path);
@@ -49,12 +58,10 @@ export function useFileProcessing() {
                     new Uint8Array(fileBytes)
                         .reduce((data, byte) => data + String.fromCharCode(byte), '')
                 );
+                // Load thumbnail immediately but continue to probe metadata
                 updateMediaItem(index, {
-                    thumbnail: `data:image/jpeg;base64,${base64String}`,
-                    processing: false,
-                    processed: true
+                    thumbnail: `data:image/jpeg;base64,${base64String}`
                 });
-                return;
             }
 
             // 1. First, Probing Metadata (Fast)
@@ -64,6 +71,7 @@ export function useFileProcessing() {
                 '-print_format', 'json',
                 item.path
             ]);
+            // console.log(`[useFileProcessing] Starting probe for ${item.name}`); 
             const probeResult = await ffprobe.execute();
             // console.log(`[useFileProcessing] Probe Result for ${item.name}:`, probeResult);
 
@@ -142,9 +150,12 @@ export function useFileProcessing() {
                     } else {
                         type = 'Video';
                     }
+                    // console.log(`[useFileProcessing] Identified type for ${item.name}: ${type}, Duration: ${duration}`);
                 } catch (e) {
                     console.error("Failed to parse ffprobe json:", e);
                 }
+            } else {
+                console.warn(`[useFileProcessing] Probe failed for ${item.name} code: ${probeResult.code}, stderr: ${probeResult.stderr}`);
             }
 
             // 2. Generate thumbnail if not audio
@@ -219,7 +230,7 @@ export function useFileProcessing() {
                 audioDepth
             });
         } catch (e) {
-            console.error('Processing error:', e);
+            console.error('Processing error for ' + item.name, e);
             updateMediaItem(index, { processing: false, processed: true });
         } finally {
             processingQueue.current.delete(item.path);

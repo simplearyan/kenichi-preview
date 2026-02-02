@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ListVideo, Plus, Film, Music, Image as ImageIcon, RefreshCw } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import { usePlayback } from "../../hooks/usePlayback";
@@ -13,6 +14,17 @@ export const Sidebar = () => {
     const { playlist, currentIndex } = useStore();
     const { handleImport, selectMedia } = usePlayback();
     const { processItem } = useFileProcessing();
+
+    // Auto-process items when playlist changes
+    useEffect(() => {
+        console.log(`[Sidebar] Playlist changed, checking for unprocessed items. Count: ${playlist.length}`);
+        playlist.forEach((item, index) => {
+            if (!item.processed && !item.processing) {
+                console.log(`[Sidebar] Triggering auto-process for ${item.name}`);
+                processItem(item, index);
+            }
+        });
+    }, [playlist, processItem]);
 
     const handleRefreshMetadata = () => {
         playlist.forEach((item, index) => {
@@ -147,11 +159,11 @@ export const Sidebar = () => {
                                         <ImageIcon className="w-5 h-5 text-zinc-600" />
                                     )}
 
-                                    {/* Duration Overlay on Thumbnail */}
-                                    {item.duration ? (
+                                    {/* Duration Overlay on Thumbnail - Always show for Video/Audio */}
+                                    {(item.duration || item.type === 'Video' || item.type === 'Audio') ? (
                                         <div className="absolute bottom-1 right-1 px-1 py-0.5 bg-black/80 rounded flex items-center gap-1 backdrop-blur-sm border border-white/10">
                                             <span className="text-[9px] font-bold text-white font-mono leading-none">
-                                                {formatDuration(item.duration)}
+                                                {formatDuration(item.duration || 0)}
                                             </span>
                                         </div>
                                     ) : null}
@@ -183,9 +195,9 @@ export const Sidebar = () => {
                                             )}
 
                                             {/* FPS Badge - Only for Video */}
-                                            {item.type === 'Video' && item.fps !== undefined && item.fps > 0 && (
+                                            {item.type === 'Video' && (
                                                 <span className="text-[9px] font-mono text-zinc-400 px-1 rounded border border-zinc-700 bg-zinc-800">
-                                                    {Math.round(item.fps)}fps
+                                                    {item.fps ? `${Math.round(item.fps)}fps` : '- fps'}
                                                 </span>
                                             )}
 
@@ -196,44 +208,46 @@ export const Sidebar = () => {
                                         </div>
                                     </div>
 
-                                    {/* Bottom Tech Details Row (Debug View) */}
-                                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-2 pt-2 border-t border-white/5 text-[9px] font-mono text-zinc-500">
+                                    {/* Bottom Tech Details Row (Debug View) - Always show for Video/Audio */}
+                                    {(item.type === 'Video' || item.type === 'Audio') && (
+                                        <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-2 pt-2 border-t border-white/5 text-[9px] font-mono text-zinc-500">
 
-                                        {/* Row 1: Codec & Profile */}
-                                        {(item.videoCodec || item.audioCodec) && (
+                                            {/* Row 1: Codec & Profile */}
                                             <div className="col-span-2 flex items-center gap-1.5 truncate">
                                                 <span className="w-1.5 h-1.5 rounded-full bg-zinc-700" />
-                                                <span className="text-zinc-400">{item.videoCodec || item.audioCodec}</span>
+                                                <span className="text-zinc-400">
+                                                    {item.videoCodec || item.audioCodec || 'Unknown Codec'}
+                                                </span>
                                                 {item.videoProfile && <span className="text-zinc-600">{item.videoProfile}</span>}
                                                 {item.audioDepth && <span className="text-zinc-600">{item.audioDepth}</span>}
                                             </div>
-                                        )}
 
-                                        {/* Row 2: Bitrate & Resolution/Layout */}
-                                        <div className="col-span-2 flex items-center justify-between">
-                                            <div className="flex items-center gap-1.5">
-                                                {item.type !== 'Image' && item.bitrate ? (
-                                                    <span>
-                                                        {item.bitrate > 1000000
-                                                            ? `${(item.bitrate / 1000000).toFixed(1)} Mbps`
-                                                            : `${Math.round(item.bitrate / 1000)} kbps`}
-                                                    </span>
-                                                ) : (
-                                                    item.size && <span className="text-zinc-500 ml-0.5">{formatSize(item.size)}</span>
-                                                )}
-                                            </div>
+                                            {/* Row 2: Bitrate & Resolution/Layout */}
+                                            <div className="col-span-2 flex items-center justify-between">
+                                                <div className="flex items-center gap-1.5">
+                                                    {(item.type === 'Video' || item.type === 'Audio') && item.bitrate ? (
+                                                        <span>
+                                                            {item.bitrate > 1000000
+                                                                ? `${(item.bitrate / 1000000).toFixed(1)} Mbps`
+                                                                : `${Math.round(item.bitrate / 1000)} kbps`}
+                                                        </span>
+                                                    ) : (
+                                                        item.size && <span className="text-zinc-500 ml-0.5">{formatSize(item.size)}</span>
+                                                    )}
+                                                </div>
 
-                                            <div className="flex items-center gap-1.5 ml-auto">
-                                                {item.audioLayout ? (
-                                                    <span className="capitalize">{item.audioLayout}</span>
-                                                ) : (
-                                                    item.channels && item.channels > 0 && <span>{item.channels}ch</span>
-                                                )}
-                                                {item.sampleRate && <span>{Math.round((item.sampleRate) / 1000)}k</span>}
-                                                {item.width && item.height && (item.width > 0 || item.height > 0) ? <span className="text-zinc-600">{item.width}x{item.height}</span> : null}
+                                                <div className="flex items-center gap-1.5 ml-auto">
+                                                    {item.audioLayout ? (
+                                                        <span className="capitalize">{item.audioLayout}</span>
+                                                    ) : (
+                                                        item.channels && item.channels > 0 && <span>{item.channels}ch</span>
+                                                    )}
+                                                    {item.sampleRate && <span>{Math.round((item.sampleRate) / 1000)}k</span>}
+                                                    {item.width && item.height && (item.width > 0 || item.height > 0) ? <span className="text-zinc-600">{item.width}x{item.height}</span> : null}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             </button>
                         );
