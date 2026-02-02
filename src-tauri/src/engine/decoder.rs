@@ -2,7 +2,6 @@ use super::state::QualityMode;
 use ffmpeg_next as ffmpeg;
 use ffmpeg_next::format::{input, Pixel};
 use ffmpeg_next::media::Type;
-use ffmpeg_next::software::resampling::context::Context as Resampler;
 use ffmpeg_next::software::scaling::{context::Context, flag::Flags};
 use ffmpeg_next::util::frame::audio::Audio;
 use ffmpeg_next::util::frame::video::Video;
@@ -28,10 +27,6 @@ pub struct Decoder {
     decoder: Option<ffmpeg::decoder::Video>,
     audio_decoder: Option<ffmpeg::decoder::Audio>,
     scaler: Option<Context>,
-    resampler: Option<Resampler>,
-    resampler_in_format: Option<ffmpeg::util::format::sample::Sample>,
-    resampler_in_rate: u32,
-    resampler_in_layout: ffmpeg::channel_layout::ChannelLayout,
     // Metadata
     duration_secs: f64,
     time_base: ffmpeg::util::rational::Rational,
@@ -39,7 +34,6 @@ pub struct Decoder {
     raw_frame: Video,
     scaled_frame: Video,
     audio_frame: Audio,
-    resampled_frame: Audio,
     // Audio Buffer (Interleaved samples)
     pub audio_buffer: Vec<f32>,
     audio_pts_counter: u64,
@@ -109,10 +103,6 @@ impl Decoder {
         let audio_stream = input_ctx.streams().best(Type::Audio);
         let mut audio_decoder = None;
         let mut audio_stream_index = None;
-        let mut resampler = None;
-        let mut resampler_in_format = None;
-        let mut resampler_in_rate = 0;
-        let mut resampler_in_layout = ffmpeg::channel_layout::ChannelLayout::empty();
         let mut audio_time_base = ffmpeg::util::rational::Rational(0, 1);
 
         if let Some(s) = audio_stream {
@@ -124,9 +114,6 @@ impl Decoder {
             })?;
             audio_stream_index = Some(s.index());
             audio_time_base = s.time_base();
-
-            let target_rate = 48000;
-            let target_layout = ffmpeg::channel_layout::ChannelLayout::STEREO;
 
             // Defensive Layout Check: WAVs often have unspecified layout in parameters
             let src_layout = if ad.channel_layout().is_empty() {
@@ -149,25 +136,6 @@ impl Decoder {
                 ad.channels()
             );
 
-            resampler = Some(
-                ffmpeg::software::resampling::context::Context::get(
-                    ad.format(),
-                    src_layout,
-                    ad.rate(),
-                    ffmpeg::util::format::sample::Sample::F32(
-                        ffmpeg::util::format::sample::Type::Packed,
-                    ),
-                    target_layout,
-                    target_rate,
-                )
-                .map_err(|e| {
-                    eprintln!("[Decoder] Failed to initialize resampler: {}", e);
-                    e
-                })?,
-            );
-            resampler_in_format = Some(ad.format());
-            resampler_in_rate = ad.rate();
-            resampler_in_layout = src_layout;
             audio_decoder = Some(ad);
         }
 
@@ -178,17 +146,12 @@ impl Decoder {
             decoder,
             audio_decoder,
             scaler,
-            resampler,
-            resampler_in_format,
-            resampler_in_rate,
-            resampler_in_layout,
             duration_secs,
             time_base,
             _audio_time_base: audio_time_base,
             raw_frame: Video::empty(),
             scaled_frame: Video::empty(),
             audio_frame: Audio::empty(),
-            resampled_frame: Audio::empty(),
             audio_buffer: Vec::with_capacity(4096),
             audio_pts_counter: 0,
         })

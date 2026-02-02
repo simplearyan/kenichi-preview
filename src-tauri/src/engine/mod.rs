@@ -3,7 +3,6 @@ pub mod decoder;
 pub mod playback;
 pub mod renderer;
 pub mod state;
-pub mod sync;
 
 pub use state::*;
 use std::sync::{Arc, Mutex};

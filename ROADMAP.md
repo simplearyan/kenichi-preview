@@ -51,6 +51,7 @@ This document outlines the planned feature development for the Kenichi Preview a
     - [ ] **Frame Stepping**: Add hardware-accelerated frame stepping (Next/Previous frame) for precision.
     - [ ] **Playback Speed**: Support variable speeds (0.5x to 4x) without pitch distortion.
 - [ ] **UX & Performance Polish**:
+    - [ ] **Fix Buffer Starvation**: Target 0 starvation logs by optimizing audio pacing and pre-roll buffers.
     - [ ] **List Virtualization**: Optimize sidebar for hundreds of media items.
     - [ ] **Native Drag-and-Drop**: Support dropping files directly from OS into the UI.
     - [ ] **Asset Management**: Add ability to remove items and clear thumbnail cache.
@@ -66,6 +67,8 @@ This document outlines the planned feature development for the Kenichi Preview a
 - [x] **Feature**: Trim Tool Implementation (Action Bar)
 - [x] **Feature**: Advanced Metadata Overlay (Top Bar Toggle)
 - [ ] **Core**: Frame-Accurate Seeking (Rust-level precise decode for 100% trim accuracy)
+- [ ] **Audio Mixer Foundation**: Support multi-track mixing leveraging the new manual sample conversion.
+- [ ] **Code Sanitization**: Remove deprecated resampler fields and unused backend variables.
 - [ ] **UX**: Audio Waveforms (Real-time visualization above progress bar)
 - [ ] **Pro**: Playlist Reordering (Drag and drop reordering in Sidebar)
 - [ ] **Feature**: Batch Export Queue (Queue multiple trims across different files)
