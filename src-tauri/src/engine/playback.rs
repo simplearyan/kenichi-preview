@@ -182,9 +182,38 @@ impl PlaybackEngine {
                         if decoder.video_stream_index.is_none() {
                             current_time = pts;
                             should_emit_update = true;
+
+                            // Dynamic Pacing for Audio-Only Mode
+                            // We must sleep to keep the loop from racing ahead of real-time
+                            let mode = *sync_mode_clone.lock().unwrap();
+                            match mode {
+                                SyncMode::Fixed => {
+                                    // Audio doesn't have "frames" per se, but we can sleep a bit
+                                    // to simulate ~60fps updates or similar.
+                                    std::thread::sleep(Duration::from_millis(16));
+                                }
+                                SyncMode::Realtime => {
+                                    if reference_start_time.is_none() {
+                                        reference_start_time = Some(
+                                            Instant::now()
+                                                .checked_sub(Duration::from_secs_f64(current_time))
+                                                .unwrap_or_else(Instant::now),
+                                        );
+                                    }
+
+                                    let target_time = reference_start_time.unwrap()
+                                        + Duration::from_secs_f64(current_time);
+                                    let now = Instant::now();
+                                    if target_time > now {
+                                        std::thread::sleep(target_time - now);
+                                    }
+                                }
+                            }
+                        } else {
+                            // If there is video, the video branch handles the sleeping.
+                            // We just let audio pass through to the buffer.
+                            std::thread::yield_now();
                         }
-                        // Don't sleep here, but yield to prevent CPU pinning if buffer is full
-                        std::thread::yield_now();
                     }
                 }
 

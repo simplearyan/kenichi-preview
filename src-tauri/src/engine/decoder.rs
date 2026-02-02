@@ -229,7 +229,10 @@ impl Decoder {
 
             if Some(stream.index()) == self.video_stream_index {
                 if let (Some(ref mut d), Some(ref mut s)) = (&mut self.decoder, &mut self.scaler) {
-                    d.send_packet(&packet)?;
+                    if let Err(e) = d.send_packet(&packet) {
+                        log::warn!("[Decoder] Video send_packet error: {:?} - continuing", e);
+                        // Continue to try receive_frame anyway, or just next packet
+                    }
                     if d.receive_frame(&mut self.raw_frame).is_ok() {
                         s.run(&self.raw_frame, &mut self.scaled_frame)?;
 
@@ -258,112 +261,135 @@ impl Decoder {
                 let _pts_secs = pts as f64 * (audio_time_base.0 as f64 / audio_time_base.1 as f64);
 
                 if let Some(ref mut ad) = self.audio_decoder {
-                    ad.send_packet(&packet)?;
+                    match ad.send_packet(&packet) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            log::warn!(
+                                "[Decoder] Audio send_packet error: {:?} - ignoring and continuing",
+                                e
+                            );
+                        }
+                    }
                     let mut frames_decoded = 0;
                     while ad.receive_frame(&mut self.audio_frame).is_ok() {
                         frames_decoded += 1;
-                        if let Some(ref mut resampler) = self.resampler {
-                            // Dynamic Re-initialization if parameters changed
-                            let frame_format = self.audio_frame.format();
-                            let frame_rate = self.audio_frame.rate();
-                            let frame_channels = self.audio_frame.channels();
-                            let frame_layout = if self.audio_frame.channel_layout().is_empty() {
-                                ffmpeg::channel_layout::ChannelLayout::default(
-                                    frame_channels as i32,
-                                )
+                        // Manual conversion now handles all audio (see below)
+
+                        // Manual conversion for I16 formats to avoid swresample issues
+                        let frame_format = self.audio_frame.format();
+                        let frame_rate = self.audio_frame.rate();
+                        let frame_channels = self.audio_frame.channels();
+
+                        // Check if we can use manual conversion (I16 Packed or F32 Planar, 1-2 channels)
+                        let use_manual =
+                            (matches!(frame_format, ffmpeg::util::format::sample::Sample::I16(_))
+                                || matches!(
+                                    frame_format,
+                                    ffmpeg::util::format::sample::Sample::F32(_)
+                                ))
+                                && frame_channels <= 2;
+
+                        if use_manual {
+                            let input_samples = self.audio_frame.samples();
+                            let output_samples = if frame_rate == 48000 {
+                                input_samples
                             } else {
-                                self.audio_frame.channel_layout()
+                                ((input_samples as u64 * 48000) / frame_rate as u64) as usize
                             };
 
-                            let needs_reinit = self.resampler_in_format != Some(frame_format)
-                                || self.resampler_in_rate != frame_rate
-                                || self.resampler_in_layout != frame_layout;
-
-                            if needs_reinit {
-                                eprintln!(
-                                    "[Decoder] Audio parameters changed! Re-initializing resampler: {:?}, {}Hz, {:?} -> {:?}, {}Hz, {:?}",
-                                    self.resampler_in_format,
-                                    self.resampler_in_rate,
-                                    self.resampler_in_layout,
-                                    frame_format,
-                                    frame_rate,
-                                    frame_layout
-                                );
-
-                                let target_rate = 48000;
-                                let target_layout = ffmpeg::channel_layout::ChannelLayout::STEREO;
-
-                                if let Ok(new_resampler) =
-                                    ffmpeg::software::resampling::context::Context::get(
-                                        frame_format,
-                                        frame_layout,
-                                        frame_rate,
-                                        ffmpeg::util::format::sample::Sample::F32(
-                                            ffmpeg::util::format::sample::Type::Packed,
-                                        ),
-                                        target_layout,
-                                        target_rate,
+                            // Handle F32 Planar (most video files)
+                            if matches!(
+                                frame_format,
+                                ffmpeg::util::format::sample::Sample::F32(
+                                    ffmpeg::util::format::sample::Type::Planar
+                                )
+                            ) {
+                                let left_data = self.audio_frame.data(0);
+                                let left_f32: &[f32] = unsafe {
+                                    std::slice::from_raw_parts(
+                                        left_data.as_ptr() as *const f32,
+                                        input_samples,
                                     )
-                                {
-                                    *resampler = new_resampler;
-                                    self.resampler_in_format = Some(frame_format);
-                                    self.resampler_in_rate = frame_rate;
-                                    self.resampler_in_layout = frame_layout;
+                                };
+
+                                if frame_channels == 1 {
+                                    for i in 0..output_samples {
+                                        let src_idx = if frame_rate == 48000 {
+                                            i
+                                        } else {
+                                            ((i as u64 * frame_rate as u64) / 48000) as usize
+                                        };
+                                        if src_idx >= input_samples {
+                                            break;
+                                        }
+                                        let sample = left_f32[src_idx];
+                                        self.audio_buffer.push(sample);
+                                        self.audio_buffer.push(sample);
+                                    }
                                 } else {
-                                    eprintln!("[Decoder] Failed to re-initialize resampler!");
-                                    continue;
+                                    let right_data = self.audio_frame.data(1);
+                                    let right_f32: &[f32] = unsafe {
+                                        std::slice::from_raw_parts(
+                                            right_data.as_ptr() as *const f32,
+                                            input_samples,
+                                        )
+                                    };
+                                    for i in 0..output_samples {
+                                        let src_idx = if frame_rate == 48000 {
+                                            i
+                                        } else {
+                                            ((i as u64 * frame_rate as u64) / 48000) as usize
+                                        };
+                                        if src_idx >= input_samples {
+                                            break;
+                                        }
+                                        self.audio_buffer.push(left_f32[src_idx]);
+                                        self.audio_buffer.push(right_f32[src_idx]);
+                                    }
+                                }
+                            } else {
+                                // Handle I16 Packed (audio-only files)
+                                let input_data = self.audio_frame.data(0);
+                                let input_i16: &[i16] = unsafe {
+                                    std::slice::from_raw_parts(
+                                        input_data.as_ptr() as *const i16,
+                                        input_samples * frame_channels as usize,
+                                    )
+                                };
+
+                                for i in 0..output_samples {
+                                    let src_idx = if frame_rate == 48000 {
+                                        i
+                                    } else {
+                                        ((i as u64 * frame_rate as u64) / 48000) as usize
+                                    };
+                                    if src_idx >= input_samples {
+                                        break;
+                                    }
+
+                                    if frame_channels == 1 {
+                                        let mono = input_i16[src_idx] as f32 / 32768.0;
+                                        self.audio_buffer.push(mono);
+                                        self.audio_buffer.push(mono);
+                                    } else {
+                                        let left = input_i16[src_idx * 2] as f32 / 32768.0;
+                                        let right = input_i16[src_idx * 2 + 1] as f32 / 32768.0;
+                                        self.audio_buffer.push(left);
+                                        self.audio_buffer.push(right);
+                                    }
                                 }
                             }
 
-                            // Correctly size the resampled frame
-                            // We resample to 48000 Hz Stereo
-                            let target_rate = 48000;
-                            let delay = resampler.delay().map(|d| d.input).unwrap_or(0);
-                            let out_samples = ((self.audio_frame.samples() as i64 + delay)
-                                * target_rate as i64
-                                / self.audio_frame.rate() as i64)
-                                as usize;
-
-                            unsafe {
-                                self.resampled_frame.alloc(
-                                    ffmpeg::util::format::sample::Sample::F32(
-                                        ffmpeg::util::format::sample::Type::Packed,
-                                    ),
-                                    out_samples,
-                                    ffmpeg::channel_layout::ChannelLayout::STEREO,
-                                );
-                            }
-
-                            let _run_result =
-                                resampler.run(&self.audio_frame, &mut self.resampled_frame)?;
-
-                            // ffmpeg-next 6.1 run() returns Result<usize, Error> or Option<Delay>
-                            // but actually it usually returns usize in Result.
-                            // The compiler says Option<Delay> so we handle that if it's the case.
-                            // If it's usize, we convert it.
-                            let converted = self.resampled_frame.samples();
-
-                            // Extract Float32 samples
-                            let data = self.resampled_frame.data(0);
-                            // Only take the samples that were actually converted
-                            let samples: &[f32] = unsafe {
-                                std::slice::from_raw_parts(
-                                    data.as_ptr() as *const f32,
-                                    converted * 2, // 2 channels
-                                )
-                            };
-                            self.audio_buffer.extend_from_slice(samples);
-
-                            // Diagnostic: Check if we are getting literal silence
-                            let max_amplitude = samples.iter().fold(0.0f32, |m, &s| m.max(s.abs()));
-                            if self.audio_pts_counter % 48000 < converted as u64 {
-                                eprintln!(
-                                    "[Decoder] Audio Amplitude: {:.6}, samples: {}, frames_in_packet: {}",
-                                    max_amplitude, converted, frames_decoded
-                                );
-                            }
-
-                            self.audio_pts_counter += converted as u64;
+                            self.audio_pts_counter += output_samples as u64;
+                        } else {
+                            // Skip exotic formats for now
+                            log::warn!(
+                                "[Decoder] Skipping unsupported format: {:?} {}Hz {}ch",
+                                frame_format,
+                                frame_rate,
+                                frame_channels
+                            );
+                            continue;
                         }
                     }
                     if frames_decoded > 0 {

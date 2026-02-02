@@ -33,8 +33,8 @@ impl Engine {
     pub fn init_audio(&self) -> anyhow::Result<()> {
         use ringbuf::HeapRb;
 
-        // Create RingBuffer for 1 second of audio (48000 samples * 2 channels)
-        let rb = HeapRb::<f32>::new(96000);
+        // Create RingBuffer for 2 seconds of audio (48000 samples * 2 channels * 2s safety)
+        let rb = HeapRb::<f32>::new(192000);
         let (producer, consumer) = rb.split();
 
         let session = audio::AudioSession::new(self.state.volume.clone(), consumer)?;

@@ -22,12 +22,16 @@ impl AudioSession {
         let device = host
             .default_output_device()
             .expect("no output device available");
+        let device_name = device.name().unwrap_or_else(|_| "unknown".to_string());
+        log::info!("[Audio] Output device selected: {}", device_name);
+
         let config = device
             .default_output_config()
             .expect("no default output config");
 
         let volume_clone = volume.clone();
         let mut underrun_counter = 0;
+        let mut callback_counter = 0u64;
 
         let stream = device.build_output_stream(
             &config.into(),
@@ -36,6 +40,14 @@ impl AudioSession {
                 let vol_int = volume_clone.load(Ordering::Relaxed);
                 let vol = vol_int as f32 / 1000.0;
                 let mut underrun_occurred = false;
+
+                // Diagnostic: Log occasionally to prove audio thread is alive
+                callback_counter += 1;
+                if callback_counter % 200 == 0 { // Approx every ~2-4 seconds depending on buffer size
+                     // log::debug!("[Audio] Callback active. Volume: {}", vol);
+                     // Note: println in realtime thread is bad practice, but okay for temporary debug
+                }
+
                 for sample in data.iter_mut() {
                     match consumer.pop() {
                         Some(s) => *sample = s * vol,
@@ -48,11 +60,11 @@ impl AudioSession {
                 if underrun_occurred {
                     underrun_counter += 1;
                     if underrun_counter % 200 == 0 {
-                        // Silent underrun unless frequent
+                        eprintln!("[Audio] Buffer Underrun (Starvation) x{}", underrun_counter);
                     }
                 }
             },
-            |err| eprintln!("audio stream error: {}", err),
+            |err| eprintln!("[Audio] Stream error: {}", err),
             None,
         )?;
 

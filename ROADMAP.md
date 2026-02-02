@@ -55,18 +55,21 @@ This document outlines the planned feature development for the Kenichi Preview a
     - [ ] **Native Drag-and-Drop**: Support dropping files directly from OS into the UI.
     - [ ] **Asset Management**: Add ability to remove items and clear thumbnail cache.
 
-- [ ] **Advanced Production Tools**:
-    - [ ] **Snapshot & Capture**: Take high-quality snapshots of current preview or specific frames.
-    - [ ] **Frame Export**: Ability to save and export individual frames to computer using FFmpeg sidecar.
+- [x] **Advanced Production Tools**:
+    - [x] **Snapshot & Capture**: Take high-quality snapshots of current preview or specific frames.
+    - [x] **Frame Export**: Ability to save and export individual frames to computer using FFmpeg sidecar.
     - [ ] **Text & Subtitle Overlays**: Add ability to overlay text and subtitles on the preview.
-    - [ ] **Production Export**: Use sidecar FFmpeg for high-fidelity rendering and export.
-    - [ ] **Production Polish**: Burn overlays into exported video and track progress in Sidebar.
+    - [x] **Production Export**: Use sidecar FFmpeg for high-fidelity rendering and export.
+    - [x] **Production Polish**: Exported trimmed clips and tracked progress in UI.
 
-## Phase 6: Future Roadmap & Research
+## Phase 6: Professional Polish & Research
+- [x] **Feature**: Trim Tool Implementation (Action Bar)
+- [x] **Feature**: Advanced Metadata Overlay (Top Bar Toggle)
+- [ ] **Core**: Frame-Accurate Seeking (Rust-level precise decode for 100% trim accuracy)
+- [ ] **UX**: Audio Waveforms (Real-time visualization above progress bar)
+- [ ] **Pro**: Playlist Reordering (Drag and drop reordering in Sidebar)
+- [ ] **Feature**: Batch Export Queue (Queue multiple trims across different files)
 - [ ] **Research**: Svelte Migration/Prototyping for High-Freq UI
-- [ ] **Feature**: Trim Tool Implementation (Action Bar)
-- [ ] **Core**: Frame-Accurate Seeking (Backend Decode)
-- [ ] **Feature**: Advanced Metadata Overlay (Top Bar Toggle)
 
 ## Phase 7: Polish & Distribution
 - [ ] **Settings Integration**: Save user preferences (volume, quality, proxy settings).
