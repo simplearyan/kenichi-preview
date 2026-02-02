@@ -28,6 +28,7 @@ pub fn run() {
             commands::init_renderer,
             commands::set_aspect_ratio,
             commands::seek_video,
+            commands::set_sync_mode,
             commands::get_app_cache_dir
         ])
         .on_window_event(|window, event| {

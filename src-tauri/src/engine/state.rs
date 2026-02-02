@@ -41,6 +41,12 @@ pub struct Rect {
     pub height: f32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+pub enum SyncMode {
+    Realtime, // Clock sync (Frame Accurate)
+    Fixed,    // Dumb sleep (Fixed Step)
+}
+
 #[derive(Clone)]
 pub struct PreviewState {
     pub renderer: Arc<Mutex<Option<crate::engine::renderer::Renderer>>>,
@@ -50,4 +56,5 @@ pub struct PreviewState {
     pub audio_producer: Arc<Mutex<Option<ringbuf::HeapProducer<f32>>>>,
     pub volume: Arc<Mutex<f32>>,
     pub seek_target: Arc<Mutex<Option<f64>>>,
+    pub sync_mode: Arc<Mutex<SyncMode>>,
 }

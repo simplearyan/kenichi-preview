@@ -16,7 +16,9 @@ export const usePlayback = () => {
         volume,
         setVolume,
         isMuted,
-        setIsMuted
+        setIsMuted,
+        syncMode,
+        setSyncMode
     } = useStore();
 
     const currentFile = currentIndex !== null ? playlist[currentIndex] : null;
@@ -114,6 +116,11 @@ export const usePlayback = () => {
         await invoke("set_aspect_ratio", { mode: nextMode });
     };
 
+    const handleSetSyncMode = async (mode: "Realtime" | "Fixed") => {
+        setSyncMode(mode);
+        await invoke("set_sync_mode", { mode });
+    };
+
     return {
         handleImport,
         handleOpenFile,
@@ -126,6 +133,8 @@ export const usePlayback = () => {
         handleSeek,
         currentFile,
         volume,
-        isMuted
+        isMuted,
+        handleSetSyncMode,
+        syncMode
     };
 };

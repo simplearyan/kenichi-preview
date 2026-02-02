@@ -1,5 +1,5 @@
 use tauri::{State, Window, Manager};
-use crate::engine::{Engine, QualityMode, AspectMode};
+use crate::engine::{Engine, QualityMode, AspectMode, SyncMode};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -57,6 +57,13 @@ pub fn toggle_playback(engine: State<'_, Engine>) -> bool {
 pub fn set_quality(engine: State<'_, Engine>, mode: QualityMode) {
     let mut quality_guard = engine.state.quality_mode.lock().unwrap();
     *quality_guard = mode;
+}
+
+#[tauri::command]
+pub fn set_sync_mode(engine: State<'_, Engine>, mode: SyncMode) {
+    eprintln!("[Command] Setting SyncMode to {:?}", mode);
+    let mut guard = engine.state.sync_mode.lock().unwrap();
+    *guard = mode;
 }
 
 #[tauri::command]

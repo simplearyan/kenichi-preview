@@ -38,6 +38,7 @@ interface PlaybackState {
     volume: number;
     isMuted: boolean;
     playbackStatus: PlaybackStatus;
+    syncMode: "Realtime" | "Fixed";
 
     // Actions
     setIsPlaying: (playing: boolean) => void;
@@ -52,6 +53,7 @@ interface PlaybackState {
     setVolume: (volume: number) => void;
     setIsMuted: (muted: boolean) => void;
     setPlaybackStatus: (status: PlaybackStatus) => void;
+    setSyncMode: (mode: "Realtime" | "Fixed") => void;
 }
 
 export const useStore = create<PlaybackState>((set) => ({
@@ -66,6 +68,7 @@ export const useStore = create<PlaybackState>((set) => ({
     volume: 1.0,
     isMuted: false,
     playbackStatus: "Paused",
+    syncMode: "Realtime",
 
     setIsPlaying: (isPlaying) => set({ isPlaying }),
     setPlaybackStatus: (playbackStatus) => set({ playbackStatus }),
@@ -87,4 +90,5 @@ export const useStore = create<PlaybackState>((set) => ({
     setIsRendererReady: (isRendererReady) => set({ isRendererReady }),
     setVolume: (volume) => set({ volume }),
     setIsMuted: (isMuted) => set({ isMuted }),
+    setSyncMode: (syncMode) => set({ syncMode }),
 }));

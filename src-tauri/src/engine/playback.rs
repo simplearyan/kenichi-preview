@@ -1,5 +1,7 @@
 use super::state::PreviewState;
+use super::state::SyncMode;
 use std::path::PathBuf;
+use std::time::{Duration, Instant};
 use tauri::{Emitter, Window};
 
 pub struct PlaybackEngine {
@@ -18,6 +20,7 @@ impl PlaybackEngine {
         let session_id_clone = self.state.session_id.clone();
         let audio_producer_clone = self.state.audio_producer.clone();
         let seek_target_clone = self.state.seek_target.clone();
+        let sync_mode_clone = self.state.sync_mode.clone();
         let quality_mode = *self.state.quality_mode.lock().unwrap();
         let window = self.window.clone();
 
@@ -45,6 +48,7 @@ impl PlaybackEngine {
             }
 
             let mut current_time = 0.0;
+            let mut reference_start_time: Option<Instant> = None;
             let (duration, _, _) = decoder.get_metadata();
 
             // Initial update so UI knows duration immediately
@@ -81,7 +85,8 @@ impl PlaybackEngine {
                         eprintln!("[PlaybackEngine] Seek failed: {}", e);
                     } else {
                         current_time = target;
-                        // Send immediate update
+                        reference_start_time = None; // Reset clock on seek
+                                                     // Send immediate update
                         let _ = window.emit(
                             "playback-update",
                             crate::engine::state::PlaybackPayload {
@@ -142,8 +147,33 @@ impl PlaybackEngine {
                         if let Some(r) = guard.as_mut() {
                             let _ = r.render_frame(&data, width, height, stride);
                         }
-                        // Only sleep for video pacing
-                        std::thread::sleep(std::time::Duration::from_millis(30));
+
+                        // Dynamic Pacing
+                        let mode = *sync_mode_clone.lock().unwrap();
+                        match mode {
+                            SyncMode::Fixed => {
+                                std::thread::sleep(Duration::from_millis(30));
+                            }
+                            SyncMode::Realtime => {
+                                if reference_start_time.is_none() {
+                                    reference_start_time = Some(
+                                        Instant::now()
+                                            .checked_sub(Duration::from_secs_f64(current_time))
+                                            .unwrap_or_else(Instant::now),
+                                    );
+                                }
+
+                                let target_time = reference_start_time.unwrap()
+                                    + Duration::from_secs_f64(current_time);
+                                let now = Instant::now();
+                                if target_time > now {
+                                    std::thread::sleep(target_time - now);
+                                } else {
+                                    // Behind schedule, catch up (no sleep)
+                                    // Could implement aggressive skip here if diff > 500ms
+                                }
+                            }
+                        }
                     }
                     crate::engine::decoder::DecodeResult::Audio { pts } => {
                         current_time = pts;
@@ -191,6 +221,7 @@ impl PlaybackEngine {
                         }
                         std::thread::sleep(std::time::Duration::from_millis(100));
                     }
+                    reference_start_time = None; // Reset clock on resume
                 }
 
                 let _ = window.emit(

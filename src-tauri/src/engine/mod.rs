@@ -24,6 +24,7 @@ impl Engine {
                 audio_producer: Arc::new(Mutex::new(None)),
                 volume: Arc::new(Mutex::new(1.0)),
                 seek_target: Arc::new(Mutex::new(None)),
+                sync_mode: Arc::new(Mutex::new(SyncMode::Realtime)),
             },
             _audio_session: Arc::new(Mutex::new(None)),
         }
