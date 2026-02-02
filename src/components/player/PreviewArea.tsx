@@ -46,12 +46,19 @@ export const PreviewArea = () => {
         return () => observer.disconnect();
     }, [isRendererReady, currentIndex]);
 
+    const playlist = useStore((state) => state.playlist);
+    const currentMedia = currentIndex !== null ? playlist[currentIndex] : null;
+    const isImage = currentMedia?.type === "Image";
+
     return (
         <main
             ref={mainRef}
             onDoubleClick={handleImport}
-            onClick={handleTogglePlayback}
-            className="flex-1 relative flex items-center justify-center bg-transparent overflow-hidden cursor-pointer group"
+            onClick={!isImage ? handleTogglePlayback : undefined}
+            className={cn(
+                "flex-1 relative flex items-center justify-center bg-transparent overflow-hidden group",
+                !isImage && "cursor-pointer"
+            )}
         >
             {currentIndex === null ? (
                 <div className="flex flex-col items-center gap-6 text-center animate-in fade-in zoom-in duration-500">
@@ -64,16 +71,19 @@ export const PreviewArea = () => {
                     </div>
                 </div>
             ) : (
-                <div className={cn(
-                    "w-24 h-24 rounded-full bg-black/40 backdrop-blur-xl flex items-center justify-center border border-white/10 transition-all duration-300 shadow-2xl",
-                    !isPlaying ? "opacity-100 scale-100" : "opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
-                )}>
-                    {isPlaying ? (
-                        <Pause className="w-10 h-10 text-white fill-current" />
-                    ) : (
-                        <Play className="w-10 h-10 text-brand-yellow fill-current ml-1" />
-                    )}
-                </div>
+                // Play/Pause Overlay - Only for Video/Audio
+                !isImage && (
+                    <div className={cn(
+                        "w-24 h-24 rounded-full bg-black/40 backdrop-blur-xl flex items-center justify-center border border-white/10 transition-all duration-300 shadow-2xl z-10",
+                        !isPlaying ? "opacity-100 scale-100" : "opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100"
+                    )}>
+                        {isPlaying ? (
+                            <Pause className="w-10 h-10 text-white fill-current" />
+                        ) : (
+                            <Play className="w-10 h-10 text-brand-yellow fill-current ml-1" />
+                        )}
+                    </div>
+                )
             )}
 
             {/* Overlay Status */}

@@ -95,6 +95,8 @@ export const ControlBar = () => {
     const widthPct = Math.max(0, endPct - startPct);
     const hasTrim = trimStart !== undefined || trimEnd !== undefined;
 
+    const isImage = currentFile?.type === "Image";
+
     return (
         <div className="flex flex-col z-50 relative">
             {/* Centered Action Bar (Floating above ControlBar) */}
@@ -132,151 +134,152 @@ export const ControlBar = () => {
                 </button>
             </div>
 
-            <footer className="glass-panel border-t border-white/5 flex flex-col relative bg-zinc-950/80 backdrop-blur-xl">
-                {/* Progress Bar - Full Width Top */}
-                <div className="w-full h-1.5 relative group cursor-pointer">
-                    {/* Background Track */}
-                    <div className="absolute top-0 left-0 right-0 bottom-0 bg-white/5 group-hover:bg-white/10 transition-colors" />
-
-                    {/* Progress Fill */}
-                    <div
-                        ref={progressBarRef}
-                        className="absolute top-0 left-0 bottom-0 bg-brand-yellow/80 group-hover:bg-brand-yellow transition-all duration-75 ease-linear"
-                        style={{ width: `${(currentTime / (duration || 1)) * 100}%` }} // Initial render value
-                    />
-
-                    {/* Selected Trim Range (Pink background - Rendered ON TOP of progress) */}
-                    {hasTrim && (
+            <footer className="glass-panel border-t border-white/5 flex flex-col relative bg-zinc-950/80 backdrop-blur-xl overflow-hidden">
+                {/* Progress Bar - Only for non-images */}
+                {!isImage && (
+                    <div className="w-full h-1.5 relative group cursor-pointer bg-white/5">
+                        {/* Progress Fill */}
                         <div
-                            className="absolute top-0 bottom-0 bg-pink-500/30 pointer-events-none"
-                            style={{
-                                left: `${startPct}%`,
-                                width: `${widthPct}%`,
-                                zIndex: 5 // Ensure it's above progress fill
+                            ref={progressBarRef}
+                            className="absolute top-0 left-0 bottom-0 bg-brand-yellow/80 group-hover:bg-brand-yellow transition-all duration-75 ease-linear"
+                            style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                        />
+
+                        {/* Selected Trim Range */}
+                        {hasTrim && (
+                            <div
+                                className="absolute top-0 bottom-0 bg-pink-500/30 pointer-events-none"
+                                style={{
+                                    left: `${startPct}%`,
+                                    width: `${widthPct}%`,
+                                    zIndex: 5
+                                }}
+                            >
+                                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.5)]" />
+                                <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.5)]" />
+                            </div>
+                        )}
+
+                        <input
+                            ref={sliderRef}
+                            type="range"
+                            min="0"
+                            max={duration || 100}
+                            step="0.01"
+                            defaultValue={currentTime}
+                            onInput={(e) => {
+                                const val = parseFloat(e.currentTarget.value);
+                                handleSeek(val);
+                                onTimeUpdate(val);
                             }}
-                        >
-                            {/* Border Indicators */}
-                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.5)]" />
-                            <div className="absolute right-0 top-0 bottom-0 w-0.5 bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.5)]" />
-                        </div>
-                    )}
-
-                    {/* Range Input for Seek */}
-                    <input
-                        ref={sliderRef}
-                        type="range"
-                        min="0"
-                        max={duration || 100}
-                        step="0.01"
-                        defaultValue={currentTime}
-                        onInput={(e) => {
-                            const val = parseFloat(e.currentTarget.value);
-                            handleSeek(val);
-                            // Immediate visual feedback
-                            onTimeUpdate(val);
-                        }}
-                        onMouseDown={() => setIsDragging(true)}
-                        onMouseUp={() => setIsDragging(false)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    />
-
-                    {/* Hover Playhead Indicator (Optional/Advanced, simpler for now) */}
-                </div>
+                            onMouseDown={() => setIsDragging(true)}
+                            onMouseUp={() => setIsDragging(false)}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                    </div>
+                )}
 
                 {/* Controls Row */}
-                <div className="h-20 px-6 flex items-center justify-between">
-                    <div className="flex items-center gap-6 w-1/3">
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Playing</span>
-                            <div className="text-sm font-bold text-zinc-200 truncate pr-4" title={currentFile?.name}>
+                <div className="h-20 px-6 flex items-center justify-between gap-8">
+                    {/* Left Section: File Info & Time */}
+                    <div className="flex items-center gap-6 flex-1 min-w-0">
+                        <div className="flex flex-col min-w-0 max-w-[240px]">
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">
+                                {isImage ? "Displaying" : "Playing"}
+                            </span>
+                            <div className="text-xs font-bold text-zinc-200 truncate pr-4" title={currentFile?.name}>
                                 {currentFile ? currentFile.name : "Idle"}
                             </div>
                         </div>
-                        <div className="flex flex-col border-l border-white/10 pl-6">
-                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Time</span>
-                            <div ref={timeDisplayRef} className="text-sm font-mono font-medium text-brand-yellow tabular-nums">
-                                {formatTime(currentTime)} / {formatTime(duration)}
+
+                        {!isImage && (
+                            <div className="flex flex-col border-l border-white/10 pl-6 shrink-0">
+                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Time</span>
+                                <div ref={timeDisplayRef} className="text-xs font-mono font-medium text-brand-yellow tabular-nums tracking-tight">
+                                    {formatTime(currentTime)} / {formatTime(duration)}
+                                </div>
                             </div>
+                        )}
+                    </div>
+
+                    {/* Center Section: Playback Controls */}
+                    <div className="flex items-center gap-2 no-drag shrink-0">
+                        <div className="flex items-center bg-white/5 rounded-xl border border-white/5 p-1">
+                            <button
+                                onClick={handleToggleAspect}
+                                className={cn(
+                                    "p-2 rounded-lg transition-all relative group hover:bg-white/5",
+                                    aspectMode === "Fit" ? "text-zinc-500" : "text-brand-yellow bg-brand-yellow/10"
+                                )}
+                                title={`Aspect Ratio: ${aspectMode}`}
+                            >
+                                <Maximize2 className="w-4 h-4" />
+                            </button>
+                            <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 transition-all">
+                                <Subtitles className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {!isImage ? (
+                            <button
+                                onClick={handleTogglePlayback}
+                                className="w-12 h-12 flex items-center justify-center rounded-xl bg-brand-yellow text-black hover:bg-brand-yellow-400 hover:scale-105 active:scale-95 shadow-lg shadow-brand-yellow/20 transition-all mx-1"
+                            >
+                                {isPlaying ? (
+                                    <Pause className="w-5 h-5 fill-current" />
+                                ) : (
+                                    <Play className="w-5 h-5 fill-current ml-0.5" />
+                                )}
+                            </button>
+                        ) : (
+                            <div className="w-12 h-12" /> // Spacer for symmetry
+                        )}
+
+                        <div className="flex items-center bg-white/5 rounded-xl border border-white/5 p-1">
+                            <div className="px-1 border-r border-white/10 mr-1">
+                                <VolumeControl />
+                            </div>
+                            <button className="p-2 rounded-lg hover:bg-white/5 text-zinc-500 transition-all">
+                                <FastForward className="w-4 h-4" />
+                            </button>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4 no-drag">
-                        <button
-                            onClick={handleToggleAspect}
-                            className={cn(
-                                "p-2.5 rounded-xl transition-all relative group hover:scale-105 active:scale-95",
-                                aspectMode === "Fit" ? "text-zinc-500 hover:text-zinc-300 hover:bg-white/5" : "text-brand-yellow bg-brand-yellow/10 border border-brand-yellow/20"
-                            )}
-                            title={`Aspect Ratio: ${aspectMode}`}
-                        >
-                            <Maximize2 className="w-5 h-5" />
-                            {aspectMode !== "Fit" && (
-                                <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-yellow opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-yellow"></span>
-                                </span>
-                            )}
-                        </button>
-
-                        <button className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-500 hover:text-zinc-300 transition-all">
-                            <Subtitles className="w-5 h-5" />
-                        </button>
-
-                        <button
-                            onClick={handleTogglePlayback}
-                            className="w-14 h-14 flex items-center justify-center rounded-2xl bg-brand-yellow text-black hover:bg-brand-yellow-400 hover:scale-105 active:scale-95 shadow-lg shadow-brand-yellow/20 transition-all mx-2"
-                        >
-                            {isPlaying ? (
-                                <Pause className="w-6 h-6 fill-current" />
-                            ) : (
-                                <Play className="w-6 h-6 fill-current ml-0.5" />
-                            )}
-                        </button>
-
-                        {/* Volume Control */}
-                        <div className="bg-white/5 rounded-xl p-1 border border-white/5">
-                            <VolumeControl />
-                        </div>
-
-                        <button className="p-2.5 rounded-xl hover:bg-white/5 text-zinc-500 hover:text-zinc-300 transition-all">
-                            <FastForward className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <div className="flex items-center justify-end gap-3 w-1/3">
-                        {/* Trim Buttons */}
-                        <div className="flex items-center gap-1 mr-2 border-r border-white/10 pr-3 h-6">
-                            <button
-                                onClick={setMarkIn}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
-                                title="Set In Point (I)"
-                            >
-                                <span className="font-bold text-xs">[</span>
-                            </button>
-                            <button
-                                onClick={setMarkOut}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
-                                title="Set Out Point (O)"
-                            >
-                                <span className="font-bold text-xs">]</span>
-                            </button>
-                        </div>
+                    {/* Right Section: Trim & Quality */}
+                    <div className="flex items-center justify-end gap-3 flex-1">
+                        {!isImage && (
+                            <div className="flex items-center gap-1 bg-white/5 rounded-xl border border-white/5 p-1">
+                                <button
+                                    onClick={setMarkIn}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                                    title="Set In Point (I)"
+                                >
+                                    <span className="font-bold text-xs">[</span>
+                                </button>
+                                <button
+                                    onClick={setMarkOut}
+                                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-zinc-400 hover:text-white transition-colors"
+                                    title="Set Out Point (O)"
+                                >
+                                    <span className="font-bold text-xs">]</span>
+                                </button>
+                            </div>
+                        )}
 
                         <button
                             onClick={handleToggleQuality}
                             className={cn(
-                                "flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 no-drag",
+                                "flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-300 no-drag shrink-0",
                                 qualityMode === "Native"
-                                    ? "bg-white/5 border-white/10 hover:border-white/20 text-zinc-300 hover:text-white"
+                                    ? "bg-white/5 border-white/10 hover:border-white/20 text-zinc-400 hover:text-zinc-200"
                                     : "bg-brand-yellow text-black border-brand-yellow shadow-lg shadow-brand-yellow/20"
                             )}
                             title={`Video Quality: ${qualityMode}`}
                         >
-                            {qualityMode === "Native" && <ShieldCheck className="w-4 h-4" />}
-                            {qualityMode === "Fast" && <Zap className="w-4 h-4" />}
-                            {qualityMode === "Proxy" && <FastForward className="w-4 h-4" />}
-                            <span className="text-xs font-bold tracking-tight uppercase">
-                                {qualityMode === "Native" ? "High Fidelity" : qualityMode}
+                            {qualityMode === "Native" && <ShieldCheck className="w-3.5 h-3.5" />}
+                            {qualityMode === "Fast" && <Zap className="w-3.5 h-3.5" />}
+                            <span className="text-[10px] font-bold tracking-tight uppercase">
+                                {qualityMode === "Native" ? "Hi-Fi" : qualityMode}
                             </span>
                         </button>
                     </div>
