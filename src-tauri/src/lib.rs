@@ -18,6 +18,24 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(
+            tauri_plugin_log::Builder::default()
+                .level(log::LevelFilter::Info)
+                .filter(|metadata| {
+                    // Filter out noisy libraries
+                    !metadata.target().starts_with("wgpu")
+                        && !metadata.target().starts_with("naga")
+                        && !metadata.target().starts_with("calloop")
+                })
+                .targets([
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: None,
+                    }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
+                ])
+                .build(),
+        )
         .manage(engine)
         .invoke_handler(tauri::generate_handler![
             commands::open_video,

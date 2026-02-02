@@ -47,10 +47,14 @@ pub struct Decoder {
 
 impl Decoder {
     pub fn new(path: &Path, quality: QualityMode) -> anyhow::Result<Self> {
-        eprintln!("[Decoder] Opening media: {:?}", path);
+        log::info!(
+            "[Decoder] Opening media: {:?}, Quality: {:?}",
+            path,
+            quality
+        );
         ffmpeg::init()?;
         let input_ctx = input(&path).map_err(|e| {
-            eprintln!("[Decoder] Failed to open input for {:?}: {}", path, e);
+            log::error!("[Decoder] Failed to open input for {:?}: {}", path, e);
             anyhow::anyhow!("FFmpeg input error: {}", e)
         })?;
 

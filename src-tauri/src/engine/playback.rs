@@ -80,9 +80,9 @@ impl PlaybackEngine {
                 }
 
                 if let Some(target) = seek_opt {
-                    eprintln!("[PlaybackEngine] Seeking to {}s", target);
+                    log::info!("[PlaybackEngine] Seeking to {}s", target);
                     if let Err(e) = decoder.seek(target) {
-                        eprintln!("[PlaybackEngine] Seek failed: {}", e);
+                        log::error!("[PlaybackEngine] Seek failed: {}", e);
                     } else {
                         current_time = target;
                         reference_start_time = None; // Reset clock on seek
@@ -128,9 +128,10 @@ impl PlaybackEngine {
 
                 iteration_count += 1;
                 if iteration_count % 100 == 0 {
-                    eprintln!(
+                    log::debug!(
                         "[PlaybackEngine] Iteration {}, current_pts: {}",
-                        iteration_count, current_time
+                        iteration_count,
+                        current_time
                     );
                 }
 

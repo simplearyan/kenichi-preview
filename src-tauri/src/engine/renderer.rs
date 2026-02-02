@@ -24,7 +24,7 @@ use super::state::{AspectMode, Rect};
 
 impl Renderer {
     pub async fn new(window: Arc<tauri::Window>) -> anyhow::Result<Self> {
-        eprintln!("[Renderer] initializing...");
+        log::info!("[Renderer] initializing...");
         let size = window.inner_size()?;
 
         // Legacy Fix with DX12 Exclusion
@@ -36,9 +36,9 @@ impl Renderer {
         });
 
         let surface = instance.create_surface(window.clone())?;
-        eprintln!("[Renderer] Surface created. Requesting adapter...");
+        log::info!("[Renderer] Surface created. Requesting adapter...");
 
-        eprintln!("[Renderer] Requesting adapter (DX11 Preferred)...");
+        log::info!("[Renderer] Requesting adapter (DX11 Preferred)...");
         let adapter = instance
             .request_adapter(&RequestAdapterOptions {
                 power_preference: PowerPreference::HighPerformance,

@@ -1,4 +1,5 @@
 import { Maximize2, Subtitles, Play, Pause, FastForward, ShieldCheck, Zap } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useStore } from "../../store/useStore";
 import { usePlayback } from "../../hooks/usePlayback";
 import { formatTime } from "../../utils/format";
@@ -22,6 +23,23 @@ export const ControlBar = () => {
 
     const { handleTogglePlayback, handleToggleQuality, handleToggleAspect, handleSeek } = usePlayback();
 
+    // Local state for smooth seeking
+    const [isDragging, setIsDragging] = useState(false);
+    const [sliderValue, setSliderValue] = useState(0);
+    const [isDebouncing, setIsDebouncing] = useState(false);
+
+    // Effect: Exit debounce early if backend catches up
+    useEffect(() => {
+        if (isDebouncing) {
+            const diff = Math.abs(currentTime - sliderValue);
+            // Only snap back if we remain extremely close (50ms) to avoid visual jitter
+            // OR if time has passed the target (we caught up)
+            if (diff < 0.1 || currentTime > sliderValue) {
+                setIsDebouncing(false);
+            }
+        }
+    }, [currentTime, isDebouncing, sliderValue]);
+
     const currentFile = currentIndex !== null ? playlist[currentIndex] : null;
 
     return (
@@ -34,7 +52,7 @@ export const ControlBar = () => {
                 {/* Progress Fill */}
                 <div
                     className="absolute top-0 left-0 bottom-0 bg-brand-yellow/80 group-hover:bg-brand-yellow transition-all duration-75 ease-linear"
-                    style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                    style={{ width: `${((isDragging ? sliderValue : currentTime) / (duration || 1)) * 100}%` }}
                 />
 
                 {/* Range Input for Seek */}
@@ -43,8 +61,18 @@ export const ControlBar = () => {
                     min="0"
                     max={duration || 100}
                     step="0.01"
-                    value={currentTime}
-                    onChange={(e) => handleSeek(parseFloat(e.target.value))}
+                    value={isDragging || isDebouncing ? sliderValue : currentTime}
+                    onInput={(e) => {
+                        setSliderValue(parseFloat(e.currentTarget.value));
+                        handleSeek(parseFloat(e.currentTarget.value));
+                    }}
+                    onMouseDown={() => setIsDragging(true)}
+                    onMouseUp={() => {
+                        setIsDragging(false);
+                        setIsDebouncing(true);
+                        // Fallback timeout in case backend never catches up (e.g. paused)
+                        setTimeout(() => setIsDebouncing(false), 500);
+                    }}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
 
