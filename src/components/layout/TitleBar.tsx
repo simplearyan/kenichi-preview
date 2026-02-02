@@ -1,7 +1,8 @@
-import { Minus, Square, Play, X, Zap, Timer, Info } from "lucide-react";
+import { Minus, Square, Play, X, Zap, Timer, Info, Camera } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { usePlayback } from "../../hooks/usePlayback";
 import { useStore } from "../../store/useStore";
+import { useExportFrame } from "../../hooks/useExportFrame";
 
 const appWindow = getCurrentWindow();
 
@@ -9,6 +10,12 @@ export const TitleBar = () => {
     const { syncMode, handleSetSyncMode } = usePlayback();
     const showMetadata = useStore((state) => state.showMetadata);
     const setShowMetadata = useStore((state) => state.setShowMetadata);
+    const { handleExportFrame, isExporting } = useExportFrame();
+
+    // Check if current item is video to enable button
+    const playlist = useStore((state) => state.playlist);
+    const currentIndex = useStore((state) => state.currentIndex);
+    const isVideo = currentIndex !== null && playlist[currentIndex]?.type === 'Video';
 
     return (
         <header className="h-10 flex items-center justify-between glass-panel drag-region px-4 z-50">
@@ -22,6 +29,17 @@ export const TitleBar = () => {
             </div>
 
             <div className="flex items-center no-drag">
+                {/* Export Frame */}
+                <button
+                    onClick={handleExportFrame}
+                    disabled={!isVideo || isExporting}
+                    className={`p-2 hover:bg-white/5 transition-colors mr-1 rounded-md ${isExporting ? 'animate-pulse text-brand-yellow' : 'text-zinc-400'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                    title="Export Current Frame (Snapshot)"
+                >
+                    <Camera className="w-4 h-4" />
+                </button>
+
+                {/* Metadata Toggle */}
                 {/* Metadata Toggle */}
                 <button
                     onClick={() => setShowMetadata(!showMetadata)}
