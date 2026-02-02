@@ -1,8 +1,9 @@
-import { Minus, Square, Play, X, Zap, Timer, Info, Camera } from "lucide-react";
+import { Minus, Square, Play, X, Zap, Timer, Info, Camera, Download } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { usePlayback } from "../../hooks/usePlayback";
 import { useStore } from "../../store/useStore";
 import { useExportFrame } from "../../hooks/useExportFrame";
+import { useTrimActions } from "../../hooks/useTrimActions";
 
 const appWindow = getCurrentWindow();
 
@@ -17,6 +18,10 @@ export const TitleBar = () => {
     const currentIndex = useStore((state) => state.currentIndex);
     const isVideo = currentIndex !== null && playlist[currentIndex]?.type === 'Video';
 
+    // Trim Export
+    const { handleExportClip, isExportingClip, trimStart, trimEnd } = useTrimActions();
+    const hasTrim = trimStart !== undefined || trimEnd !== undefined;
+
     return (
         <header className="h-10 flex items-center justify-between glass-panel drag-region px-4 z-50">
             <div className="flex items-center gap-2">
@@ -29,6 +34,19 @@ export const TitleBar = () => {
             </div>
 
             <div className="flex items-center no-drag">
+                {/* Export Clip (Only visible if Trim Active) */}
+                <button
+                    onClick={handleExportClip}
+                    disabled={!isVideo || isExportingClip || !hasTrim}
+                    className={`flex items-center gap-1.5 px-2 py-1 hover:bg-white/5 transition-colors mr-1 rounded-md ${isExportingClip ? 'animate-pulse text-pink-500' : 'text-zinc-400'} disabled:opacity-30 disabled:hidden`}
+                    title="Export Trimmed Clip"
+                >
+                    <Download className="w-4 h-4" />
+                    <span className="text-xs font-bold uppercase text-pink-500">Clip</span>
+                </button>
+
+                <div className="w-px h-4 bg-white/10 mx-2" />
+
                 {/* Export Frame */}
                 <button
                     onClick={handleExportFrame}

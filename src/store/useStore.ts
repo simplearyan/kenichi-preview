@@ -26,6 +26,8 @@ export interface MediaItem {
     colorTransfer?: string; // e.g. "bt709"
     colorPrimaries?: string; // e.g. "bt709"
     colorRange?: string;    // e.g. "tv" (limited) or "pc" (full)
+    trimStart?: number;     // seconds
+    trimEnd?: number;       // seconds
 }
 
 export type PlaybackStatus = "Playing" | "Paused" | "Buffering" | "Finished" | "Error";
