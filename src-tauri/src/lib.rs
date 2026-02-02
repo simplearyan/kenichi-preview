@@ -27,6 +27,7 @@ pub fn run() {
             commands::update_viewport,
             commands::init_renderer,
             commands::set_aspect_ratio,
+            commands::seek_video,
             commands::get_app_cache_dir
         ])
         .on_window_event(|window, event| {

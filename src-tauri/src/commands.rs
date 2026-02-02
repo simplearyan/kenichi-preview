@@ -60,6 +60,13 @@ pub fn set_quality(engine: State<'_, Engine>, mode: QualityMode) {
 }
 
 #[tauri::command]
+pub fn seek_video(engine: State<'_, Engine>, time: f64) {
+    eprintln!("[Command] seek_video requested to {}s", time);
+    let mut guard = engine.state.seek_target.lock().unwrap();
+    *guard = Some(time);
+}
+
+#[tauri::command]
 pub fn set_volume(engine: State<'_, Engine>, volume: f32) {
     let mut v = engine.state.volume.lock().unwrap();
     *v = volume.clamp(0.0, 1.0);

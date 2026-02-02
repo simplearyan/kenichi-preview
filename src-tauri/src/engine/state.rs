@@ -49,4 +49,5 @@ pub struct PreviewState {
     pub session_id: Arc<Mutex<u64>>,
     pub audio_producer: Arc<Mutex<Option<ringbuf::HeapProducer<f32>>>>,
     pub volume: Arc<Mutex<f32>>,
+    pub seek_target: Arc<Mutex<Option<f64>>>,
 }

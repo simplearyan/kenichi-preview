@@ -23,6 +23,7 @@ impl Engine {
                 session_id: Arc::new(Mutex::new(0)),
                 audio_producer: Arc::new(Mutex::new(None)),
                 volume: Arc::new(Mutex::new(1.0)),
+                seek_target: Arc::new(Mutex::new(None)),
             },
             _audio_session: Arc::new(Mutex::new(None)),
         }

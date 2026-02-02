@@ -17,6 +17,7 @@ impl PlaybackEngine {
         let playing_clone = self.state.is_playing.clone();
         let session_id_clone = self.state.session_id.clone();
         let audio_producer_clone = self.state.audio_producer.clone();
+        let seek_target_clone = self.state.seek_target.clone();
         let quality_mode = *self.state.quality_mode.lock().unwrap();
         let window = self.window.clone();
 
@@ -62,6 +63,34 @@ impl PlaybackEngine {
                 // Check if session has changed (user opened new file)
                 if *session_id_clone.lock().unwrap() != current_session {
                     break;
+                }
+
+                // Check for Seek Request
+                let mut seek_opt = None;
+                {
+                    let mut guard = seek_target_clone.lock().unwrap();
+                    if let Some(target) = *guard {
+                        seek_opt = Some(target);
+                        *guard = None; // Reset
+                    }
+                }
+
+                if let Some(target) = seek_opt {
+                    eprintln!("[PlaybackEngine] Seeking to {}s", target);
+                    if let Err(e) = decoder.seek(target) {
+                        eprintln!("[PlaybackEngine] Seek failed: {}", e);
+                    } else {
+                        current_time = target;
+                        // Send immediate update
+                        let _ = window.emit(
+                            "playback-update",
+                            crate::engine::state::PlaybackPayload {
+                                current_time,
+                                duration,
+                                status: crate::engine::state::PlaybackStatus::Buffering,
+                            },
+                        );
+                    }
                 }
 
                 let decode_result = decoder.decode_next();

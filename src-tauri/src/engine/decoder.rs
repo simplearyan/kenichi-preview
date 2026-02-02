@@ -190,6 +190,26 @@ impl Decoder {
         })
     }
 
+    pub fn seek(&mut self, time_secs: f64) -> anyhow::Result<()> {
+        let timestamp = (time_secs * 1_000_000.0) as i64;
+        // Seek to timestamp in microseconds (AV_TIME_BASE is 1,000,000)
+        self.input_ctx.seek(timestamp, ..timestamp)?;
+
+        // Flush internal buffers
+        if let Some(ref mut d) = self.decoder {
+            d.flush();
+        }
+        if let Some(ref mut ad) = self.audio_decoder {
+            ad.flush();
+        }
+
+        // Reset buffers
+        self.audio_buffer.clear();
+        self.audio_pts_counter = (time_secs * 48000.0) as u64; // Approx reset
+
+        Ok(())
+    }
+
     pub fn get_metadata(&self) -> (f64, u32, u32) {
         let (w, h) = if let Some(ref d) = self.decoder {
             (d.width(), d.height())
