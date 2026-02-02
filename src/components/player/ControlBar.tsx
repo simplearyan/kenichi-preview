@@ -1,11 +1,12 @@
 import { Maximize2, Subtitles, Play, Pause, FastForward, ShieldCheck, Zap } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "../../store/useStore";
 import { usePlayback } from "../../hooks/usePlayback";
 import { formatTime } from "../../utils/format";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { VolumeControl } from "./VolumeControl";
+import { useInterpolatedTime } from "../../hooks/useInterpolatedTime";
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -23,22 +24,39 @@ export const ControlBar = () => {
 
     const { handleTogglePlayback, handleToggleQuality, handleToggleAspect, handleSeek } = usePlayback();
 
-    // Local state for smooth seeking
-    const [isDragging, setIsDragging] = useState(false);
-    const [sliderValue, setSliderValue] = useState(0);
-    const [isDebouncing, setIsDebouncing] = useState(false);
+    // Direct DOM Refs for performance (No Re-renders)
+    const progressBarRef = useRef<HTMLDivElement>(null);
+    const timeDisplayRef = useRef<HTMLDivElement>(null);
+    const sliderRef = useRef<HTMLInputElement>(null);
 
-    // Effect: Exit debounce early if backend catches up
-    useEffect(() => {
-        if (isDebouncing) {
-            const diff = Math.abs(currentTime - sliderValue);
-            // Only snap back if we remain extremely close (50ms) to avoid visual jitter
-            // OR if time has passed the target (we caught up)
-            if (diff < 0.1 || currentTime > sliderValue) {
-                setIsDebouncing(false);
-            }
+    // Callbacks for the interpolation loop
+    const onTimeUpdate = (time: number) => {
+        // 1. Update Progress Bar
+        if (progressBarRef.current) {
+            const pct = (time / (duration || 1)) * 100;
+            progressBarRef.current.style.width = `${pct}%`;
         }
-    }, [currentTime, isDebouncing, sliderValue]);
+        // 2. Update Slider (if not dragging)
+        if (sliderRef.current && !isDragging) {
+            // We don't update input.value programmatically to avoid interfering with interaction
+            // instead we rely on visual bar. But for "knob" position we might need it? 
+            // Actually, for a pure CSS bar, we don't need the input knob to move perfectly if it's invisible.
+            // BUT, if we want the knob to be at the right place when user clicks?
+            // Yes, we should update it.
+            sliderRef.current.value = time.toString();
+        }
+        // 3. Update Text
+        if (timeDisplayRef.current) {
+            timeDisplayRef.current.innerText = `${formatTime(time)} / ${formatTime(duration)}`;
+        }
+    };
+
+    // Smooth interpolated time hook (Updates refs directly)
+    useInterpolatedTime(currentTime, isPlaying, onTimeUpdate);
+
+    // Local state for dragging (still needed for Interaction)
+    const [isDragging, setIsDragging] = useState(false);
+    // sliderValue state is removed, we read directly from event
 
     const currentFile = currentIndex !== null ? playlist[currentIndex] : null;
 
@@ -51,28 +69,27 @@ export const ControlBar = () => {
 
                 {/* Progress Fill */}
                 <div
+                    ref={progressBarRef}
                     className="absolute top-0 left-0 bottom-0 bg-brand-yellow/80 group-hover:bg-brand-yellow transition-all duration-75 ease-linear"
-                    style={{ width: `${((isDragging ? sliderValue : currentTime) / (duration || 1)) * 100}%` }}
+                    style={{ width: `${(currentTime / (duration || 1)) * 100}%` }} // Initial render value
                 />
 
                 {/* Range Input for Seek */}
                 <input
+                    ref={sliderRef}
                     type="range"
                     min="0"
                     max={duration || 100}
                     step="0.01"
-                    value={isDragging || isDebouncing ? sliderValue : currentTime}
+                    defaultValue={currentTime}
                     onInput={(e) => {
-                        setSliderValue(parseFloat(e.currentTarget.value));
-                        handleSeek(parseFloat(e.currentTarget.value));
+                        const val = parseFloat(e.currentTarget.value);
+                        handleSeek(val);
+                        // Immediate visual feedback
+                        onTimeUpdate(val);
                     }}
                     onMouseDown={() => setIsDragging(true)}
-                    onMouseUp={() => {
-                        setIsDragging(false);
-                        setIsDebouncing(true);
-                        // Fallback timeout in case backend never catches up (e.g. paused)
-                        setTimeout(() => setIsDebouncing(false), 500);
-                    }}
+                    onMouseUp={() => setIsDragging(false)}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
 
@@ -90,8 +107,8 @@ export const ControlBar = () => {
                     </div>
                     <div className="flex flex-col border-l border-white/10 pl-6">
                         <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Time</span>
-                        <div className="text-sm font-mono font-medium text-brand-yellow tabular-nums">
-                            {formatTime(currentTime)} <span className="text-zinc-600 font-normal mx-0.5">/</span> {formatTime(duration)}
+                        <div ref={timeDisplayRef} className="text-sm font-mono font-medium text-brand-yellow tabular-nums">
+                            {formatTime(currentTime)} / {formatTime(duration)}
                         </div>
                     </div>
                 </div>

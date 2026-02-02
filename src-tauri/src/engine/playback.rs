@@ -135,6 +135,8 @@ impl PlaybackEngine {
                     );
                 }
 
+                let mut should_emit_update = false;
+
                 match result {
                     crate::engine::decoder::DecodeResult::Video {
                         data,
@@ -144,6 +146,8 @@ impl PlaybackEngine {
                         pts,
                     } => {
                         current_time = pts;
+                        should_emit_update = true; // Always emit on video frame
+
                         let mut guard = renderer_clone.lock().unwrap();
                         if let Some(r) = guard.as_mut() {
                             let _ = r.render_frame(&data, width, height, stride);
@@ -169,15 +173,16 @@ impl PlaybackEngine {
                                 let now = Instant::now();
                                 if target_time > now {
                                     std::thread::sleep(target_time - now);
-                                } else {
-                                    // Behind schedule, catch up (no sleep)
-                                    // Could implement aggressive skip here if diff > 500ms
                                 }
                             }
                         }
                     }
                     crate::engine::decoder::DecodeResult::Audio { pts } => {
-                        current_time = pts;
+                        // Only update time from audio if there is NO video stream
+                        if decoder.video_stream_index.is_none() {
+                            current_time = pts;
+                            should_emit_update = true;
+                        }
                         // Don't sleep here, but yield to prevent CPU pinning if buffer is full
                         std::thread::yield_now();
                     }
@@ -225,14 +230,16 @@ impl PlaybackEngine {
                     reference_start_time = None; // Reset clock on resume
                 }
 
-                let _ = window.emit(
-                    "playback-update",
-                    crate::engine::state::PlaybackPayload {
-                        current_time,
-                        duration,
-                        status: crate::engine::state::PlaybackStatus::Playing,
-                    },
-                );
+                if should_emit_update {
+                    let _ = window.emit(
+                        "playback-update",
+                        crate::engine::state::PlaybackPayload {
+                            current_time,
+                            duration,
+                            status: crate::engine::state::PlaybackStatus::Playing,
+                        },
+                    );
+                }
             }
 
             eprintln!(
