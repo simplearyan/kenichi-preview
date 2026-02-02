@@ -22,7 +22,7 @@ impl Engine {
                 is_playing: Arc::new(Mutex::new(false)),
                 session_id: Arc::new(Mutex::new(0)),
                 audio_producer: Arc::new(Mutex::new(None)),
-                volume: Arc::new(Mutex::new(1.0)),
+                volume: Arc::new(std::sync::atomic::AtomicU32::new(1000)), // 1.0 * 1000
                 seek_target: Arc::new(Mutex::new(None)),
                 sync_mode: Arc::new(Mutex::new(SyncMode::Realtime)),
             },

@@ -1,5 +1,6 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 pub struct AudioSession {
     _stream: Box<dyn StreamTrait>,
@@ -14,7 +15,7 @@ unsafe impl Sync for AudioSession {}
 
 impl AudioSession {
     pub fn new(
-        volume: Arc<Mutex<f32>>,
+        volume: Arc<std::sync::atomic::AtomicU32>,
         mut consumer: ringbuf::HeapConsumer<f32>,
     ) -> anyhow::Result<Self> {
         let host = cpal::default_host();
@@ -31,7 +32,9 @@ impl AudioSession {
         let stream = device.build_output_stream(
             &config.into(),
             move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                let vol = *volume_clone.lock().unwrap();
+                // Lock-free volume read
+                let vol_int = volume_clone.load(Ordering::Relaxed);
+                let vol = vol_int as f32 / 1000.0;
                 let mut underrun_occurred = false;
                 for sample in data.iter_mut() {
                     match consumer.pop() {

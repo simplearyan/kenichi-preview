@@ -2,6 +2,7 @@ use tauri::{State, Window, Manager};
 use crate::engine::{Engine, QualityMode, AspectMode, SyncMode};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 #[tauri::command]
 pub async fn open_video(
@@ -73,11 +74,6 @@ pub fn seek_video(engine: State<'_, Engine>, time: f64) {
     *guard = Some(time);
 }
 
-#[tauri::command]
-pub fn set_volume(engine: State<'_, Engine>, volume: f32) {
-    let mut v = engine.state.volume.lock().unwrap();
-    *v = volume.clamp(0.0, 1.0);
-}
 
 #[tauri::command]
 pub fn update_viewport(
@@ -115,6 +111,14 @@ pub async fn init_renderer(window: Window, engine: State<'_, Engine>) -> Result<
         }
     }
     Ok(())
+}
+
+#[tauri::command]
+pub fn set_volume(engine: State<'_, Engine>, volume: f32) {
+    eprintln!("[Command] Setting Volume: {}", volume);
+    // Store as scaled u32 (x1000)
+    let vol_int = (volume.clamp(0.0, 1.0) * 1000.0) as u32;
+    engine.state.volume.store(vol_int, Ordering::Relaxed);
 }
 #[tauri::command]
 pub fn get_app_cache_dir(app: tauri::AppHandle) -> Result<String, String> {
